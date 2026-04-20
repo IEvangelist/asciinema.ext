@@ -2,6 +2,12 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.0.3] - 2026-04-20
+
+### Changed
+
+- Removed installs badge from README (`badgen.net` returns "500" text for newly published extensions until Marketplace stats propagate)
+
 ## [0.0.2] - 2026-04-20
 
 ### Changed
