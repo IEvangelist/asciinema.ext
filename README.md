@@ -1,8 +1,8 @@
 # Asciinema — VS Code Extension
 
-[![Version](https://img.shields.io/visual-studio-marketplace/v/davidpine-dev.asciinema?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/davidpine-dev.asciinema)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/davidpine-dev.asciinema)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema&ssr=false#review-details)
+[![Version](https://vsmarketplacebadges.dev/version/davidpine-dev.asciinema.svg?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
+[![Installs](https://vsmarketplacebadges.dev/installs/davidpine-dev.asciinema.svg)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
+[![Rating](https://vsmarketplacebadges.dev/rating-star/davidpine-dev.asciinema.svg)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema&ssr=false#review-details)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Preview and play [asciinema](https://asciinema.org) `.cast` terminal recordings directly in Visual Studio Code.
