@@ -1,7 +1,6 @@
 # Asciinema — VS Code Extension
 
 [![Version](https://badgen.net/vs-marketplace/v/davidpine-dev.asciinema?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
-[![Installs](https://badgen.net/vs-marketplace/i/davidpine-dev.asciinema)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Preview and play [asciinema](https://asciinema.org) `.cast` terminal recordings directly in Visual Studio Code.
