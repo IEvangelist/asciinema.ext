@@ -2,7 +2,7 @@
   "name": "asciinema",
   "displayName": "Asciinema",
   "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -67,6 +67,12 @@
         "title": "Open as Text",
         "category": "Asciinema",
         "icon": "$(file-code)"
+      },
+      {
+        "command": "asciinema.openFromPullRequest",
+        "title": "Open from GitHub Pull Request...",
+        "category": "Asciinema",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
@@ -83,6 +89,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "lint": "eslint src/**/*.ts",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/remote/__tests__/*.test.js",
     "package": "vsce package",
     "publish": "vsce publish"
   },
@@ -94,6 +101,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "asciinema-player": "^3.15.0"
+    "asciinema-player": "^3.15.0",
+    "jszip": "^3.10.1"
   }
 }

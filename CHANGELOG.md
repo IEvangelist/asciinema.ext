@@ -2,6 +2,15 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.1.0] - 2026-04-20
+
+### Added
+
+- **Open from GitHub Pull Request** command — paste a GitHub PR URL and the extension signs in with VS Code's built-in GitHub auth, finds the latest completed CI run on the PR head commit, and downloads any `.cast` files bundled in its workflow artifacts. Works with public and private repos.
+- Quick picks for choosing between multiple artifacts on a run or multiple `.cast` files inside a single artifact.
+- Session-scoped temp storage under the extension's global storage with automatic cleanup of older sessions on activation.
+- Pure-logic tests for PR URL parsing, filename sanitization, and zip extraction guards (`npm test`).
+
 ## [0.0.3] - 2026-04-20
 
 ### Changed

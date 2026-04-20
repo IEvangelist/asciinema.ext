@@ -1,6 +1,8 @@
 node_modules/
 src/
 tsconfig.json
+tsconfig.test.json
+dist-test/
 esbuild.mjs
 .github/
 .vscode/

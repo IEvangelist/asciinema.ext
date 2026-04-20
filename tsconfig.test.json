@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist-test",
+    "noEmit": false,
+    "declaration": false,
+    "module": "Node16",
+    "moduleResolution": "Node16"
+  },
+  "include": [
+    "src/remote/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-test"
+  ]
+}
