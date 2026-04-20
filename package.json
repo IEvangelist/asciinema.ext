@@ -1,0 +1,99 @@
+{
+  "name": "asciinema",
+  "displayName": "Asciinema",
+  "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
+  "version": "0.0.1",
+  "publisher": "davidpine-dev",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "asciinema",
+    "cast",
+    "terminal",
+    "recording",
+    "player",
+    "asciicast",
+    "preview"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IEvangelist/asciinema.ext"
+  },
+  "homepage": "https://github.com/IEvangelist/asciinema.ext#readme",
+  "bugs": {
+    "url": "https://github.com/IEvangelist/asciinema.ext/issues"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "asciicast",
+        "extensions": [
+          ".cast"
+        ],
+        "aliases": [
+          "Asciicast",
+          "asciinema"
+        ],
+        "icon": {
+          "light": "media/asciinema-icon.svg",
+          "dark": "media/asciinema-icon.svg"
+        }
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "asciinema.castPreview",
+        "displayName": "Asciinema Player",
+        "selector": [
+          {
+            "filenamePattern": "*.cast"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "asciinema.openAsText",
+        "title": "Open as Text",
+        "category": "Asciinema",
+        "icon": "$(file-code)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "asciinema.openAsText",
+          "when": "activeCustomEditorId == asciinema.castPreview",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "lint": "eslint src/**/*.ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "@types/vscode": "^1.109.0",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.3",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "asciinema-player": "^3.15.0"
+  }
+}
