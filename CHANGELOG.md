@@ -2,6 +2,18 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.0.2] - 2026-04-20
+
+### Changed
+
+- Switched Marketplace badges to `badgen.net` (shields.io Marketplace badges were retired; `vsmarketplacebadges.dev` returns HTTP 500 for newly published extensions)
+- Removed rating badge until real ratings exist
+- Added `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` opt-in to GitHub Actions workflows
+
+### Fixed
+
+- Removed broken `preview.png` reference from README
+
 ## [0.0.1] - 2026-02-18
 
 ### Added
