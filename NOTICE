@@ -1,0 +1,32 @@
+Asciinema VS Code Extension
+Copyright (c) David Pine
+
+This product is an independent, third-party Visual Studio Code extension for
+playing back asciinema recordings. It is not an official asciinema product and
+is not affiliated with or endorsed by the asciinema project or its maintainers.
+
+--------------------------------------------------------------------------------
+Attribution: asciinema
+--------------------------------------------------------------------------------
+
+This extension plays back files produced by asciinema (https://asciinema.org),
+the terminal session recorder created by Marcin Kulik and the asciinema
+community. The extension bundles the asciinema-player JavaScript library as a
+runtime dependency.
+
+  asciinema-player — https://github.com/asciinema/asciinema-player
+  Copyright (c) 2011 Marcin Kulik
+  Licensed under the Apache License, Version 2.0
+  https://www.apache.org/licenses/LICENSE-2.0
+
+The file-type icon for ``.cast`` files (``media/asciinema-icon.svg``) is the
+asciinema play-triangle mark, used here solely to identify the file format and
+to describe the origin of the playback engine per Apache-2.0 §6.
+
+The extension's marketplace icon (``media/icon.svg`` / ``media/icon.png``)
+incorporates the asciinema play-triangle mark alongside a distinct ``.casts``
+label and is used as the mark of this independent extension, not as the
+asciinema project's mark.
+
+Please support the upstream project at https://asciinema.org and
+https://docs.asciinema.org.

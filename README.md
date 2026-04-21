@@ -5,6 +5,8 @@
 
 Preview and play [asciinema](https://asciinema.org) `.cast` terminal recordings directly in Visual Studio Code.
 
+> ℹ️ **Independent, third-party extension.** This project is an unofficial playback shell around [asciinema](https://asciinema.org); it is not affiliated with or endorsed by the asciinema project. See [Credits](#credits--acknowledgements).
+
 ## Install
 
 - **VS Code:** search for **Asciinema** in the Extensions view (`Ctrl+Shift+X`), or install from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema).
@@ -55,6 +57,18 @@ None at this time.
 ## Release Notes
 
 See [CHANGELOG](CHANGELOG.md) for detailed release notes.
+
+## Credits & Acknowledgements
+
+This extension is a playback shell around **[asciinema](https://asciinema.org)** — the excellent terminal session recorder created by **[Marcin Kulik](https://hachyderm.io/@ku1ik)** and the asciinema community. All of the heavy lifting (the `.cast` file format, the recording tools, and the playback engine) comes from their work; this extension just wires it into VS Code.
+
+- 🌐 Website: <https://asciinema.org>
+- 📚 Documentation: <https://docs.asciinema.org>
+- 🎥 asciinema-player (bundled): <https://github.com/asciinema/asciinema-player> (Apache-2.0)
+- 🎙️ CLI recorder: <https://github.com/asciinema/asciinema>
+- 💚 Support the project: <https://docs.asciinema.org/donations/>
+
+This extension is an independent, third-party project. It is **not** an official asciinema product and is **not** affiliated with or endorsed by the asciinema project or its maintainers. See [`NOTICE`](NOTICE) for full attribution.
 
 ## License
 

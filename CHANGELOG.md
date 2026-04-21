@@ -2,6 +2,14 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.1.1] - 2026-04-20
+
+### Changed
+
+- Redesigned the Marketplace icon to add a beveled `.casts` bubble that clearly differentiates this extension's mark from the upstream asciinema logo.
+- Added a prominent **Credits & Acknowledgements** section to the README linking to [asciinema.org](https://asciinema.org) and the upstream maintainers.
+- Added a top-level `NOTICE` file providing full attribution for the bundled `asciinema-player` (Apache-2.0) and the asciinema play-triangle mark used to identify the `.cast` file format.
+
 ## [0.1.0] - 2026-04-20
 
 ### Added
