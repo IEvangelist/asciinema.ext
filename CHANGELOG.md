@@ -2,6 +2,12 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.1.2] - 2026-04-20
+
+### Changed
+
+- Reworked the Marketplace icon so the `.casts` bubble now sits as a drop-shadowed overlay badge on top of the full asciinema mark (v0.1.1 had split the composition instead of overlaying).
+
 ## [0.1.1] - 2026-04-20
 
 ### Changed
