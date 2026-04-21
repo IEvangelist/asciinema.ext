@@ -2,6 +2,19 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.1.3] - 2026-04-20
+
+### Added
+
+- New setting `asciinema.maxArtifactSizeMB` (default **100 MB**, bumped from 50 MB) for the workflow-artifact compressed-size cap on **Asciinema: Open from GitHub Pull Request**.
+- When a selected artifact exceeds the configured cap, the extension now shows a modal warning with the actual vs. configured size and a **Download Anyway** confirmation, instead of silently refusing.
+- Animated demo GIF embedded in the README (rendered from `samples/demo.cast` via `agg`).
+
+### Changed
+
+- Rewrote the README around a stronger hook, a visible demo, and a tighter feature narrative.
+- Refined the Marketplace icon: added a blinking terminal cursor after `.casts`, bumped the PNG to 256×256 for crisper rendering at every size.
+
 ## [0.1.2] - 2026-04-20
 
 ### Changed

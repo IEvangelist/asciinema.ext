@@ -2,7 +2,7 @@
   "name": "asciinema",
   "displayName": "Asciinema",
   "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -33,6 +33,18 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
+    "configuration": {
+      "title": "Asciinema",
+      "properties": {
+        "asciinema.maxArtifactSizeMB": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "maximum": 2048,
+          "description": "Maximum compressed size (in MB) of a workflow artifact that the \"Open from GitHub Pull Request\" command will download without prompting. Larger selections are still allowed after a confirmation dialog."
+        }
+      }
+    },
     "languages": [
       {
         "id": "asciicast",

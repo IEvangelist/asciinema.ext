@@ -1,62 +1,59 @@
-# Asciinema — VS Code Extension
+# .casts — Asciinema Player for VS Code
 
 [![Version](https://badgen.net/vs-marketplace/v/davidpine-dev.asciinema?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
 
-Preview and play [asciinema](https://asciinema.org) `.cast` terminal recordings directly in Visual Studio Code.
+> **Play terminal recordings without leaving your editor.** Open any `.cast` file in VS Code and it just plays — and if the recording lives in a GitHub PR's CI artifacts, grab it straight from there too.
 
-> ℹ️ **Independent, third-party extension.** This project is an unofficial playback shell around [asciinema](https://asciinema.org); it is not affiliated with or endorsed by the asciinema project. See [Credits](#credits--acknowledgements).
+<p align="center">
+  <img src="media/demo.gif" alt="Playing an asciinema .cast recording inside a VS Code editor tab" />
+</p>
+
+> ℹ️ Independent, third-party extension. Built on top of [asciinema](https://asciinema.org) — see [Credits](#credits--acknowledgements).
 
 ## Install
 
-- **VS Code:** search for **Asciinema** in the Extensions view (`Ctrl+Shift+X`), or install from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema).
-- **Command line:** `code --install-extension davidpine-dev.asciinema`
+```
+code --install-extension davidpine-dev.asciinema
+```
 
-## Features
+…or search **`.casts`** / **Asciinema** in the Extensions view (`Ctrl+Shift+X`).
 
-### 🎬 Inline Player
+## What you get
 
-Click any `.cast` file in the Explorer and it opens in the **asciinema player** — right inside a VS Code editor tab. No external tools needed.
+- 🎬 **Zero-setup playback.** Click any `.cast` file and it opens in the asciinema player, right inside an editor tab. No export, no external viewer, no browser trip.
+- ☁️ **Straight from GitHub PRs.** Run **Asciinema: Open from GitHub Pull Request…**, paste a PR URL, and it downloads the `.cast` files from the PR's latest CI artifacts and plays them. Perfect for reviewing recordings attached to code review.
+- 🗂️ **Native file identity.** `.cast` files get a recognizable icon in the Explorer and can be toggled between the player and raw text with one click.
 
-### 🎨 File Icon
+## Usage
 
-`.cast` files display the recognizable asciinema logo in the Explorer and editor tabs, making them easy to spot in your project tree.
+### Local `.cast` files
 
-### 📝 Open as Text
+Just open the file. That's it. The asciinema player takes over the tab. Use the **Open as Text** button in the editor title bar if you need to inspect the raw NDJSON.
 
-Need to inspect the raw NDJSON? Use the **"Open as Text"** button in the editor title bar (or right-click → _Open With..._) to switch to the standard text editor.
+### From a GitHub pull request
 
-### ☁️ Open from GitHub Pull Request
+1. `Ctrl+Shift+P` → **Asciinema: Open from GitHub Pull Request…**
+2. Paste a PR URL (e.g., `https://github.com/owner/repo/pull/123`).
+3. Sign in with VS Code's built-in GitHub auth (one-time, `repo` scope).
+4. Pick an artifact and a `.cast` file from the PR's latest completed run.
 
-Review `.cast` recordings attached as CI artifacts without leaving VS Code:
+Works with public and private repos. Downloaded casts are written to a private, session-scoped temp directory and cleaned up on next activation.
 
-1. Open the Command Palette and run **Asciinema: Open from GitHub Pull Request...**
-2. Paste a GitHub PR URL (e.g., `https://github.com/owner/repo/pull/123`).
-3. Sign in with VS Code's built-in GitHub authentication (one-time, `repo` scope).
-4. The extension finds the latest completed workflow run with artifacts on the PR's head commit, lets you pick an artifact and (if needed) a specific `.cast` file, then opens it in the player.
+## Configuration
 
-Works with both public and private repositories. Downloaded casts are written to the extension's private session-scoped temp directory and cleaned up automatically on later activations.
+| Setting | Default | Description |
+|---|---|---|
+| `asciinema.maxArtifactSizeMB` | `100` | Maximum compressed artifact size that downloads without prompting. Larger artifacts still work — you just get a confirmation dialog showing the actual vs. configured size. |
 
-## Supported Formats
+## Supported formats
 
 - **asciicast v2** — the current standard format produced by `asciinema rec`
 - **asciicast v3** — the latest format revision
 
 ## Requirements
 
-- VS Code 1.109.0 or later
-
-## Extension Settings
-
-This extension does not contribute any custom settings.
-
-## Known Issues
-
-None at this time.
-
-## Release Notes
-
-See [CHANGELOG](CHANGELOG.md) for detailed release notes.
+VS Code 1.109.0 or later.
 
 ## Credits & Acknowledgements
 
@@ -69,6 +66,10 @@ This extension is a playback shell around **[asciinema](https://asciinema.org)**
 - 💚 Support the project: <https://docs.asciinema.org/donations/>
 
 This extension is an independent, third-party project. It is **not** an official asciinema product and is **not** affiliated with or endorsed by the asciinema project or its maintainers. See [`NOTICE`](NOTICE) for full attribution.
+
+## Release notes
+
+See [CHANGELOG](CHANGELOG.md) for a detailed history.
 
 ## License
 

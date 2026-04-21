@@ -1,20 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <defs>
-    <linearGradient id="bubble-bevel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3d3d3d"/>
-      <stop offset="50%" stop-color="#1a1a1a"/>
-      <stop offset="100%" stop-color="#050505"/>
-    </linearGradient>
-    <linearGradient id="bubble-rim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
     <filter id="bubble-shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.5"/>
     </filter>
   </defs>
 
-  <!-- asciinema play-triangle mark, full canvas -->
+  <!-- asciinema play-triangle mark -->
   <svg x="0" y="0" width="256" height="256" viewBox="-130 -130 1126 1126">
     <defs>
       <mask id="small-triangle-mask">
@@ -26,15 +17,23 @@
     <polyline points="481.2177826491071 333.0127018922194, 134.80762113533166 533.0127018922194" stroke="#d40000" stroke-width="90" fill="none"/>
   </svg>
 
-  <!-- .casts overlay badge sitting on the bottom third -->
+  <!-- flat dark chip with .casts + blinking cursor -->
   <g filter="url(#bubble-shadow)">
-    <rect x="16" y="178" width="224" height="64" rx="20" ry="20"
-          fill="url(#bubble-bevel)" stroke="#000000" stroke-opacity="0.7" stroke-width="1"/>
-    <rect x="20" y="181" width="216" height="22" rx="16" ry="16"
-          fill="url(#bubble-rim)"/>
-    <text x="128" y="222" text-anchor="middle"
-          font-family="Consolas, 'SF Mono', 'Courier New', monospace"
-          font-size="36" font-weight="700" fill="#ffffff" letter-spacing="1.5">.casts</text>
+    <rect x="52" y="198" width="152" height="46" rx="16" ry="16"
+          fill="#111111" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1"/>
+    <!-- text + cursor as one centered group; text left-anchored so cursor sits right after -->
+    <g transform="translate(80, 0)">
+      <text x="0" y="230"
+            font-family="Consolas, 'SF Mono', 'Courier New', monospace"
+            font-size="26" font-weight="700" fill="#ffffff"
+            textLength="88" lengthAdjust="spacingAndGlyphs">.casts</text>
+      <rect x="92" y="211" width="3" height="22" fill="#ffffff">
+        <animate attributeName="opacity"
+                 values="1;1;0;0"
+                 keyTimes="0;0.5;0.5;1"
+                 dur="1.1s"
+                 repeatCount="indefinite"/>
+      </rect>
+    </g>
   </g>
 </svg>
-

@@ -20,7 +20,16 @@ import {
 } from "./artifact-zip.js";
 import { writeTempCast } from "./temp-storage.js";
 
-const MAX_COMPRESSED_ARTIFACT_BYTES = 50 * 1024 * 1024;
+const DEFAULT_MAX_ARTIFACT_MB = 100;
+const HARD_LIMIT_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB safety ceiling
+
+function getConfiguredMaxArtifactBytes(): number {
+    const mb = vscode.workspace
+        .getConfiguration("asciinema")
+        .get<number>("maxArtifactSizeMB", DEFAULT_MAX_ARTIFACT_MB);
+    const safe = Number.isFinite(mb) && mb > 0 ? mb : DEFAULT_MAX_ARTIFACT_MB;
+    return Math.round(safe * 1024 * 1024);
+}
 
 export async function openFromPullRequestCommand(
     context: vscode.ExtensionContext
@@ -117,6 +126,22 @@ async function runFlow(
         return;
     }
 
+    const configuredMaxBytes = getConfiguredMaxArtifactBytes();
+    let effectiveMaxBytes = configuredMaxBytes;
+    if (chosenArtifact.sizeInBytes > configuredMaxBytes) {
+        const confirmed = await confirmOversizeDownload(
+            chosenArtifact.sizeInBytes,
+            configuredMaxBytes
+        );
+        if (!confirmed) {
+            return;
+        }
+        effectiveMaxBytes = Math.min(
+            Math.max(chosenArtifact.sizeInBytes * 2, configuredMaxBytes),
+            HARD_LIMIT_BYTES
+        );
+    }
+
     let zipBytes: Uint8Array;
     try {
         zipBytes = await vscode.window.withProgress(
@@ -129,7 +154,7 @@ async function runFlow(
                     token,
                     coords,
                     chosenArtifact.id,
-                    MAX_COMPRESSED_ARTIFACT_BYTES
+                    effectiveMaxBytes
                 )
         );
     } catch (err) {
@@ -177,6 +202,27 @@ async function runFlow(
         fileUri,
         "asciinema.castPreview"
     );
+}
+
+async function confirmOversizeDownload(
+    actualBytes: number,
+    configuredBytes: number
+): Promise<boolean> {
+    const actualMB = formatMB(actualBytes);
+    const configuredMB = formatMB(configuredBytes);
+    const overBy = formatMB(actualBytes - configuredBytes);
+    const proceed = "Download Anyway";
+    const choice = await vscode.window.showWarningMessage(
+        `This artifact is ${actualMB} MB, which is ${overBy} MB over your configured limit of ${configuredMB} MB (\`asciinema.maxArtifactSizeMB\`). Download it anyway?`,
+        { modal: true },
+        proceed
+    );
+    return choice === proceed;
+}
+
+function formatMB(bytes: number): string {
+    const mb = bytes / 1024 / 1024;
+    return mb >= 10 ? mb.toFixed(0) : mb.toFixed(1);
 }
 
 async function acquireSession(): Promise<
