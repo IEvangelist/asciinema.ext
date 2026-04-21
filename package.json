@@ -1,8 +1,8 @@
 {
   "name": "asciinema",
-  "displayName": "Asciinema",
+  "displayName": "asciinema.casts",
   "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",

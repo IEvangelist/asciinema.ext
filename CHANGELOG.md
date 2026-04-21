@@ -2,6 +2,12 @@
 
 All notable changes to the **Asciinema** extension will be documented in this file.
 
+## [0.1.4] - 2026-04-20
+
+### Changed
+
+- Marketplace display name is now **asciinema.casts** (was "Asciinema") to better match our branding and the in-product mark.
+
 ## [0.1.3] - 2026-04-20
 
 ### Added
