@@ -1,8 +1,8 @@
 {
   "name": "asciinema",
-  "displayName": "asciinema.casts",
-  "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
-  "version": "0.2.1",
+  "displayName": "GitHub Artifacts Explorer & Asciinema Player",
+  "description": "Browse GitHub PR build artifacts in VS Code — play asciinema casts, preview Astro & static-site builds, and explore extracted files, with live download progress, recents, and a per-cast player settings cog.",
+  "version": "0.3.0",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -11,15 +11,24 @@
   },
   "categories": [
     "Visualization",
+    "SCM Providers",
     "Other"
   ],
   "keywords": [
     "asciinema",
     "cast",
+    "asciicast",
     "terminal",
     "recording",
     "player",
-    "asciicast",
+    "github",
+    "artifacts",
+    "artifact",
+    "pull-request",
+    "pr",
+    "ci",
+    "astro",
+    "static-site",
     "preview"
   ],
   "repository": {
@@ -34,7 +43,7 @@
   "activationEvents": [],
   "contributes": {
     "configuration": {
-      "title": "Asciinema",
+      "title": "GitHub Artifacts Explorer",
       "properties": {
         "asciinema.maxArtifactSizeMB": {
           "type": "number",
@@ -63,6 +72,110 @@
           "minimum": 1,
           "maximum": 8192,
           "description": "Maximum uncompressed size (in MB) of any single file inside an artifact zip."
+        },
+        "asciinema.player.autoPlay": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start playback automatically when a .cast file opens. Equivalent to the asciinema player `autoPlay` option."
+        },
+        "asciinema.player.preload": {
+          "type": "boolean",
+          "default": false,
+          "description": "Preload the recording when the player initializes (asciinema `preload` option)."
+        },
+        "asciinema.player.loop": {
+          "type": [
+            "boolean",
+            "number"
+          ],
+          "default": false,
+          "description": "Loop playback. `true` for infinite loop, a number to loop that many times, `false` for no looping (asciinema `loop` option)."
+        },
+        "asciinema.player.startAt": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "default": 0,
+          "description": "Time to start playback at. Number of seconds, or `mm:ss` / `hh:mm:ss` (asciinema `startAt` option)."
+        },
+        "asciinema.player.speed": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 16,
+          "description": "Playback speed (`2` means 2x). Defaults to 1 (asciinema `speed` option)."
+        },
+        "asciinema.player.idleTimeLimit": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "Compress inactivity longer than N seconds. `null` to use the cast file's recorded value (asciinema `idleTimeLimit` option)."
+        },
+        "asciinema.player.pauseOnMarkers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pause playback at every marker (asciinema `pauseOnMarkers` option)."
+        },
+        "asciinema.player.theme": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "asciinema",
+            "dracula",
+            "monokai",
+            "nord",
+            "solarized-dark",
+            "solarized-light",
+            "tango"
+          ],
+          "description": "Terminal color theme. `auto` lets the extension pick based on your VS Code light/dark theme."
+        },
+        "asciinema.player.fit": {
+          "type": "string",
+          "default": "width",
+          "enum": [
+            "width",
+            "height",
+            "both",
+            "none"
+          ],
+          "description": "Player sizing behavior relative to the editor pane (asciinema `fit` option). `none` uses a fixed font size."
+        },
+        "asciinema.player.controls": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "always",
+            "never"
+          ],
+          "description": "Show/hide the bottom control bar (asciinema `controls` option)."
+        },
+        "asciinema.player.terminalFontSize": {
+          "type": "string",
+          "default": "small",
+          "description": "Terminal font size: `small`, `medium`, `big`, or any CSS font-size (e.g. `15px`). Only effective when `fit` is `none`."
+        },
+        "asciinema.player.terminalFontFamily": {
+          "type": "string",
+          "default": "'Cascadia Code', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', monospace",
+          "description": "Terminal font-family (any valid CSS font-family value)."
+        },
+        "asciinema.player.terminalLineHeight": {
+          "type": "number",
+          "default": 1.33333333,
+          "minimum": 0.5,
+          "maximum": 4,
+          "description": "Terminal line height, relative to the font size (asciinema `terminalLineHeight` option)."
+        },
+        "asciinema.player.poster": {
+          "type": "string",
+          "default": "",
+          "description": "Poster (preview frame) shown before playback. `npt:1:23` to show a frame at 1m23s, or `data:text/plain,...` for arbitrary text (asciinema `poster` option)."
         }
       }
     },
@@ -122,7 +235,7 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "lint": "eslint src/**/*.ts",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/remote/__tests__/*.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\"",
     "package": "vsce package",
     "publish": "vsce publish"
   },

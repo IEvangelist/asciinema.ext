@@ -1,6 +1,28 @@
 # Changelog
 
-All notable changes to the **asciinema.casts** extension will be documented in this file.
+All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
+
+## [0.3.0] - 2026-04-28
+
+### Added — Player settings cog ⚙
+
+- **Per-cast settings cog.** The asciinema player info bar now hosts a ⚙ Settings button that opens a flyout exposing every [player option from the asciinema docs](https://docs.asciinema.org/manual/player/options/) — `autoPlay`, `preload`, `loop`, `startAt`, `speed`, `idleTimeLimit`, `pauseOnMarkers`, `theme`, `fit`, `controls`, `terminalFontSize`, `terminalFontFamily`, `terminalLineHeight`, `poster`. The old standalone Theme picker has been folded into the cog.
+- **Three-tier resolution.** Per-cast overrides win over global VS Code settings (`asciinema.player.*`), which win over baked-in defaults. Each control displays its source (Cast / Global / Default) and an inline `↺` reset button.
+- **Live reload.** Editing `asciinema.player.*` in `settings.json` (or via the cog's "Global defaults" tab) updates every open `.cast` viewer without reloading the file. The webview re-creates the player with new options instead of reloading HTML.
+- **Promote to global.** "Save current overrides as global defaults" pushes the per-cast settings into user-global config in one click.
+- **Per-cast persistence.** Overrides are stored in `globalState` keyed by cast URI, LRU-capped at 200 entries. Survives restarts. Closes [#1](https://github.com/IEvangelist/asciinema.ext/issues/1).
+- **14 new `asciinema.player.*` settings** in the Settings UI (also discoverable via the cog's "Open in VS Code Settings ▸" link).
+
+### Changed — Rebrand
+
+- **New marketplace identity.** Display name is now **GitHub Artifacts Explorer & Asciinema Player** (was *asciinema.casts*). The description, categories (`Visualization`, `SCM Providers`, `Other`), and keywords (`github`, `artifacts`, `pr`, `pull-request`, `astro`, `static-site`, `ci`) reflect the broader scope.
+- **New icon.** Cardboard-box-with-play-triangle artwork in `media/icon.svg` + `media/icon.png` to communicate "play artifact contents from GitHub". Subtle GitHub octocat in the corner.
+- **Configuration title** in the Settings UI is now `GitHub Artifacts Explorer` (was `Asciinema`).
+- **README rewritten** to lead with the artifacts story and document the new player settings.
+
+### Notes
+
+- The package id (`davidpine-dev.asciinema`) and the command id (`asciinema.openFromPullRequest`) are unchanged — existing installs and keybindings keep working.
 
 ## [0.2.1] - 2026-04-27
 
