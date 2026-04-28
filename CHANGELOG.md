@@ -1,6 +1,35 @@
 # Changelog
 
-All notable changes to the **Asciinema** extension will be documented in this file.
+All notable changes to the **asciinema.casts** extension will be documented in this file.
+
+## [0.2.0] - 2026-04-27
+
+### Added — GitHub Artifacts Explorer 🚀
+
+The **Open from Pull Request** command has been rebuilt as the **GitHub: Artifacts Explorer**, a content-aware artifact browser.
+
+- **Smart artifact dispatch.** Detects what's inside a downloaded artifact and offers the right way to open it:
+  - `.cast` files → Asciinema player picker (with duration parsed from the cast header).
+  - **Astro builds** (`package.json` astro dep / `_astro/` dir / generator meta) → detect `astro` CLI, offer to `npm install -g astro` if missing, run `astro preview` in a managed Pseudoterminal, open Simple Browser at the served URL automatically.
+  - **Generic static sites** (any shallowest `index.html`) → spin up an embedded Node HTTP server (port 0, traversal-guarded, mime-mapped) and open Simple Browser.
+  - Falls back to **Reveal in Explorer** when nothing matches.
+- **Persistent recents.** Successful opens are saved to `globalState` (capped at 25, oldest evicted). The picker lists them with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Picker-level buttons add **Refresh** and **Forget All**. Recents survive VS Code restarts; their files do too — orphan dirs are cleaned on activation.
+- **Live progress indicators.** Both download and extraction now stream real percentages (`12.4 MB of 87.0 MB (14%)` / `12,403 / 27,718 files · 184.2 MB (44%)`), throttled to ~10 updates/sec.
+- **Cheeky download/extract quips.** After 5s of waiting, you get a rotating cast of dev-humor tied to elapsed time (40+ jokes, 7s rotation, smooth tier transitions) — `🛰️ Pretty sure these bits went via satellite. Twice.`, `🥖 You could've baked bread by now.`, etc. Extraction has its own zip-themed extras.
+- **Recoverable cap-breach UX.** Hit a `maxArtifactEntryCount` / `maxArtifactEntrySizeMB` / `maxArtifactExtractedMB` cap and you get a notification with **Raise to N & Retry**, **Set custom value…**, **Open Settings**, or **Cancel** — instead of a dead-end error.
+- **True extraction resume.** When you raise a cap and retry, the extraction skips files already on disk (stat-based check, no re-decompression) and picks up where it left off. Restarting at 24k/27k is now near-instant.
+
+### Configuration — new
+
+- `asciinema.maxArtifactExtractedMB` *(new, default 2048, max 16384)* — total uncompressed size cap.
+- `asciinema.maxArtifactEntryCount` *(new, default 250000, max 2000000)* — file-count cap.
+- `asciinema.maxArtifactEntrySizeMB` *(new, default 500, max 8192)* — single-file size cap.
+
+### Changed
+
+- Command rebranded **Asciinema: Open Artifact from GitHub Pull Request** → **GitHub: Artifacts Explorer**.
+- `asciinema.maxArtifactSizeMB` default raised 100 → **250 MB**, max 2048 → 4096.
+- Hard download safety ceiling raised 2 GB → 4 GB.
 
 ## [0.1.4] - 2026-04-20
 

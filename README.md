@@ -22,7 +22,7 @@ code --install-extension davidpine-dev.asciinema
 ## What you get
 
 - 🎬 **Zero-setup playback.** Click any `.cast` file and it opens in the asciinema player, right inside an editor tab. No export, no external viewer, no browser trip.
-- ☁️ **Straight from GitHub PRs.** Run **Asciinema: Open from GitHub Pull Request…**, paste a PR URL, and it downloads the `.cast` files from the PR's latest CI artifacts and plays them. Perfect for reviewing recordings attached to code review.
+- ☁️ **GitHub Artifacts Explorer.** Run **GitHub: Artifacts Explorer**, paste a PR URL, and the extension downloads its CI build artifacts and figures out how to open them: `.cast` recordings → asciinema player; **Astro builds** → `astro preview` + Simple Browser; any **static site** with an `index.html` → embedded HTTP server + Simple Browser; everything else → reveal in Explorer. Recents persist across restarts and resume mid-extraction if you raise a size cap.
 - 🗂️ **Native file identity.** `.cast` files get a recognizable icon in the Explorer and can be toggled between the player and raw text with one click.
 
 ## Usage
@@ -33,18 +33,23 @@ Just open the file. That's it. The asciinema player takes over the tab. Use the 
 
 ### From a GitHub pull request
 
-1. `Ctrl+Shift+P` → **Asciinema: Open from GitHub Pull Request…**
-2. Paste a PR URL (e.g., `https://github.com/owner/repo/pull/123`).
+1. `Ctrl+Shift+P` → **GitHub: Artifacts Explorer**
+2. Pick a recent artifact, or paste a PR URL to download a new one (e.g., `https://github.com/owner/repo/pull/123`).
 3. Sign in with VS Code's built-in GitHub auth (one-time, `repo` scope).
-4. Pick an artifact and a `.cast` file from the PR's latest completed run.
+4. Let the extension dispatch on content type — it'll auto-pick the best way to open the artifact (cast picker / Astro preview / static server / Explorer).
 
-Works with public and private repos. Downloaded casts are written to a private, session-scoped temp directory and cleaned up on next activation.
+Works with public and private repos. Recent artifacts persist across VS Code restarts; their files are kept on disk for instant re-open and cleaned up when forgotten.
 
 ## Configuration
 
 | Setting | Default | Description |
 |---|---|---|
-| `asciinema.maxArtifactSizeMB` | `100` | Maximum compressed artifact size that downloads without prompting. Larger artifacts still work — you just get a confirmation dialog showing the actual vs. configured size. |
+| `asciinema.maxArtifactSizeMB` | `250` | Maximum compressed artifact size that downloads without prompting. Larger artifacts still work — you just get a confirmation dialog showing the actual vs. configured size. |
+| `asciinema.maxArtifactExtractedMB` | `2048` | Maximum total uncompressed size of artifact contents written to disk during extraction. |
+| `asciinema.maxArtifactEntryCount` | `250000` | Maximum number of files allowed inside an artifact zip. |
+| `asciinema.maxArtifactEntrySizeMB` | `500` | Maximum uncompressed size of any single file inside an artifact zip. |
+
+If extraction trips a cap, you'll get a notification with **Raise & Retry**, **Set custom value…**, or **Open Settings** — never a dead-end. Retries resume from where they left off.
 
 ## Supported formats
 

@@ -24,6 +24,9 @@ export interface WorkflowRunSummary {
     readonly name: string | null;
     readonly runNumber: number;
     readonly headSha: string;
+    readonly headBranch: string | null;
+    readonly actor: string | null;
+    readonly conclusion: string | null;
     readonly htmlUrl: string;
     readonly createdAt: string;
 }
@@ -135,6 +138,10 @@ async function listCompletedRunsForSha(
             name: string | null;
             run_number: number;
             head_sha: string;
+            head_branch: string | null;
+            actor?: { login?: string } | null;
+            triggering_actor?: { login?: string } | null;
+            conclusion: string | null;
             html_url: string;
             created_at: string;
         }>;
@@ -147,6 +154,9 @@ async function listCompletedRunsForSha(
         name: r.name,
         runNumber: r.run_number,
         headSha: r.head_sha,
+        headBranch: r.head_branch,
+        actor: r.actor?.login ?? r.triggering_actor?.login ?? null,
+        conclusion: r.conclusion,
         htmlUrl: r.html_url,
         createdAt: r.created_at,
     }));
@@ -211,18 +221,31 @@ export async function findRunWithArtifacts(
     return undefined;
 }
 
+export interface DownloadProgress {
+    /** Bytes received so far. */
+    readonly received: number;
+    /**
+     * Total bytes expected, when the server provided a `Content-Length`
+     * header. Undefined for chunked/unknown responses.
+     */
+    readonly total?: number;
+}
+
 /**
  * Downloads an artifact zip. The `/zip` endpoint returns a 302 to a signed
  * URL; Node's fetch follows redirects and drops the Authorization header on
  * cross-origin redirects (desired — the signed URL self-authenticates).
  *
- * Enforces a compressed-size cap before returning the bytes.
+ * Enforces a compressed-size cap before returning the bytes. Reads the body
+ * incrementally via `ReadableStream` so callers can report fine-grained
+ * progress.
  */
 export async function downloadArtifactZip(
     token: string,
     coords: PullRequestCoordinates,
     artifactId: number,
-    maxBytes: number
+    maxBytes: number,
+    onProgress?: (p: DownloadProgress) => void
 ): Promise<Uint8Array> {
     let response: Response;
     try {
@@ -256,32 +279,79 @@ export async function downloadArtifactZip(
     }
 
     const contentLengthHeader = response.headers.get("content-length");
+    let total: number | undefined;
     if (contentLengthHeader) {
-        const contentLength = Number(contentLengthHeader);
-        if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        const parsed = Number(contentLengthHeader);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            total = parsed;
+            if (parsed > maxBytes) {
+                throw new GitHubApiError(
+                    0,
+                    `Artifact is ${Math.round(
+                        parsed / 1024 / 1024
+                    )} MB, exceeding the ${Math.round(
+                        maxBytes / 1024 / 1024
+                    )} MB limit.`,
+                    false
+                );
+            }
+        }
+    }
+
+    if (!response.body) {
+        // Fall back to bulk-read when body streaming isn't supported.
+        const buffer = await response.arrayBuffer();
+        if (buffer.byteLength > maxBytes) {
             throw new GitHubApiError(
                 0,
                 `Artifact is ${Math.round(
-                    contentLength / 1024 / 1024
+                    buffer.byteLength / 1024 / 1024
                 )} MB, exceeding the ${Math.round(
                     maxBytes / 1024 / 1024
                 )} MB limit.`,
                 false
             );
         }
+        onProgress?.({ received: buffer.byteLength, total });
+        return new Uint8Array(buffer);
     }
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > maxBytes) {
-        throw new GitHubApiError(
-            0,
-            `Artifact is ${Math.round(
-                buffer.byteLength / 1024 / 1024
-            )} MB, exceeding the ${Math.round(
-                maxBytes / 1024 / 1024
-            )} MB limit.`,
-            false
-        );
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    onProgress?.({ received: 0, total });
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+            break;
+        }
+        if (value) {
+            received += value.byteLength;
+            if (received > maxBytes) {
+                try {
+                    await reader.cancel();
+                } catch {
+                    // ignore
+                }
+                throw new GitHubApiError(
+                    0,
+                    `Artifact exceeds the ${Math.round(
+                        maxBytes / 1024 / 1024
+                    )} MB limit during download.`,
+                    false
+                );
+            }
+            chunks.push(value);
+            onProgress?.({ received, total });
+        }
     }
-    return new Uint8Array(buffer);
+
+    const out = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+        out.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return out;
 }

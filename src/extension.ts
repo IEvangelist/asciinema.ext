@@ -1,9 +1,28 @@
 import * as vscode from "vscode";
 import { CastPreviewProvider } from "./cast-preview-provider.js";
 import { openFromPullRequestCommand } from "./remote/open-from-pull-request.js";
-import { cleanupOlderSessions } from "./remote/temp-storage.js";
+import {
+    cleanupCurrentSession,
+    cleanupOlderSessions,
+} from "./remote/temp-storage.js";
+import {
+    getKnownArtifactDirs,
+    initRecentArtifacts,
+} from "./remote/recent-artifacts.js";
 
-export function activate(context: vscode.ExtensionContext): void {
+let extensionContext: vscode.ExtensionContext | undefined;
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+    extensionContext = context;
+
+    // Hydrate recents from globalState. Wrapped defensively so a corrupt
+    // entry can never block command registration.
+    try {
+        await initRecentArtifacts(context);
+    } catch (err) {
+        console.error("[asciinema] Failed to load recent artifacts:", err);
+    }
+
     const provider = new CastPreviewProvider(context);
 
     context.subscriptions.push(
@@ -35,14 +54,29 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand(
             "asciinema.openFromPullRequest",
-            () => openFromPullRequestCommand(context)
+            async () => {
+                try {
+                    await openFromPullRequestCommand(context);
+                } catch (err) {
+                    console.error(
+                        "[asciinema] openFromPullRequest failed:",
+                        err
+                    );
+                    await vscode.window.showErrorMessage(
+                        `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                    );
+                }
+            }
         )
     );
 
-    // Best-effort cleanup of temp casts from prior sessions.
-    void cleanupOlderSessions(context);
+    void cleanupOlderSessions(context, getKnownArtifactDirs());
 }
 
-export function deactivate(): void {
-    // No-op
+export async function deactivate(): Promise<void> {
+    // Note: do NOT clear recents here — they persist via globalState so the
+    // user can re-open recent artifacts after restarting VS Code.
+    if (extensionContext) {
+        await cleanupCurrentSession(extensionContext);
+    }
 }

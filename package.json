@@ -2,7 +2,7 @@
   "name": "asciinema",
   "displayName": "asciinema.casts",
   "description": "Preview and play asciinema .cast terminal recordings directly in VS Code.",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -38,10 +38,31 @@
       "properties": {
         "asciinema.maxArtifactSizeMB": {
           "type": "number",
-          "default": 100,
+          "default": 250,
           "minimum": 1,
-          "maximum": 2048,
-          "description": "Maximum compressed size (in MB) of a workflow artifact that the \"Open from GitHub Pull Request\" command will download without prompting. Larger selections are still allowed after a confirmation dialog."
+          "maximum": 4096,
+          "description": "Maximum compressed size (in MB) of a workflow artifact that the GitHub Artifacts Explorer command will download without prompting. Larger selections are still allowed after a confirmation dialog."
+        },
+        "asciinema.maxArtifactExtractedMB": {
+          "type": "number",
+          "default": 2048,
+          "minimum": 1,
+          "maximum": 16384,
+          "description": "Maximum total uncompressed size (in MB) of artifact contents written to disk during extraction."
+        },
+        "asciinema.maxArtifactEntryCount": {
+          "type": "number",
+          "default": 250000,
+          "minimum": 100,
+          "maximum": 2000000,
+          "description": "Maximum number of files allowed inside a downloaded artifact zip. Protects against zip-bomb-style archives."
+        },
+        "asciinema.maxArtifactEntrySizeMB": {
+          "type": "number",
+          "default": 500,
+          "minimum": 1,
+          "maximum": 8192,
+          "description": "Maximum uncompressed size (in MB) of any single file inside an artifact zip."
         }
       }
     },
@@ -82,8 +103,8 @@
       },
       {
         "command": "asciinema.openFromPullRequest",
-        "title": "Open from GitHub Pull Request...",
-        "category": "Asciinema",
+        "title": "Artifacts Explorer",
+        "category": "GitHub",
         "icon": "$(cloud-download)"
       }
     ],

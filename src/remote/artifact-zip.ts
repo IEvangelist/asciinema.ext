@@ -17,10 +17,30 @@ export const DEFAULT_LIMITS: ZipExtractionLimits = {
     maxTotalCastBytes: 50 * 1024 * 1024,
 };
 
+export type ZipLimitKind =
+    | "entries"
+    | "entrySize"
+    | "totalSize"
+    | "symlink"
+    | "traversal";
+
 export class ZipLimitError extends Error {
-    constructor(message: string) {
+    readonly kind: ZipLimitKind;
+    /** Current cap that was breached, in bytes (size kinds) or count (entries). */
+    readonly cap?: number;
+    /** Observed value that breached the cap. */
+    readonly observed?: number;
+    constructor(
+        message: string,
+        kind: ZipLimitKind = "totalSize",
+        cap?: number,
+        observed?: number
+    ) {
         super(message);
         this.name = "ZipLimitError";
+        this.kind = kind;
+        this.cap = cap;
+        this.observed = observed;
     }
 }
 
