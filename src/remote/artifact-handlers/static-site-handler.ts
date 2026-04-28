@@ -45,10 +45,11 @@ export const staticSiteHandler: ArtifactHandler = {
     },
 };
 
-async function launchStaticPreview(
+export async function launchStaticPreview(
     ctx: HandlerContext,
-    site: SiteDetection
-): Promise<void> {
+    site: SiteDetection,
+    options: { headerNote?: string } = {}
+): Promise<void>{
     const writeEmitter = new vscode.EventEmitter<string>();
     const closeEmitter = new vscode.EventEmitter<number | void>();
     let server: StaticServerHandle | undefined;
@@ -58,6 +59,9 @@ async function launchStaticPreview(
         onDidWrite: writeEmitter.event,
         onDidClose: closeEmitter.event,
         open: async () => {
+            if (options.headerNote) {
+                writeEmitter.fire(ansi.yellow(options.headerNote) + "\r\n");
+            }
             writeEmitter.fire(
                 ansi.cyan("▶ Static site preview\r\n") +
                     ansi.dim(`  root: ${site.siteRoot}\r\n\r\n`)

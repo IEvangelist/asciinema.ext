@@ -2,6 +2,16 @@
 
 All notable changes to the **asciinema.casts** extension will be documented in this file.
 
+## [0.2.1] - 2026-04-27
+
+### Fixed
+
+- **`Reveal extracted files in Explorer` actually works now.** The old fallback called VS Code's `revealInExplorer`, which silently no-ops for paths outside the workspace — and extracted artifacts live in `globalStorageUri`, so it never did anything. Replaced with a **Browse extracted files…** sub-picker offering three guaranteed-to-work options:
+  - **Open folder in new VS Code window** (`vscode.openFolder` + `forceNewWindow`)
+  - **Add folder to current workspace** (`updateWorkspaceFolders`)
+  - **Show in File Explorer / Finder / file manager** (`vscode.env.openExternal`, OS-aware label)
+- **Astro preview falls back to the built-in static server on failure.** If `astro` isn't installed and you decline (or `npm install -g astro` fails), or if `astro preview` exits before serving a URL (crash, unsupported config, missing `dist/`, port conflict, etc.), the artifact is now served by the embedded Node HTTP server instead of leaving you with a dead terminal. The fallback terminal includes a yellow header explaining why.
+
 ## [0.2.0] - 2026-04-27
 
 ### Added — GitHub Artifacts Explorer 🚀

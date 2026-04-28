@@ -71,8 +71,8 @@ export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
             kind: vscode.QuickPickItemKind.Separator,
         },
         {
-            label: "$(folder-opened)  Reveal extracted files in Explorer",
-            description: "Browse the artifact contents",
+            label: "$(folder-opened)  Browse extracted files…",
+            description: "Open in a new window, add to workspace, or show in the OS file manager",
             detail: ctx.extracted.rootDir.fsPath,
             fallback: "reveal",
         }
@@ -95,11 +95,88 @@ export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
 }
 
 async function revealExtractedInExplorer(ctx: HandlerContext): Promise<void> {
-    await vscode.commands.executeCommand(
-        "revealInExplorer",
-        ctx.extracted.rootDir
+    const dir = ctx.extracted.rootDir;
+    const inNewWindow = "$(empty-window)  Open folder in new VS Code window";
+    const addToWorkspace = "$(multiple-windows)  Add folder to current workspace";
+    const showInOs = `$(file-directory)  Show in ${osFileManagerName()}`;
+    const choice = await vscode.window.showQuickPick(
+        [
+            {
+                label: inNewWindow,
+                description: "Treat the artifact as a workspace",
+                detail: dir.fsPath,
+                value: "new" as const,
+            },
+            {
+                label: addToWorkspace,
+                description: "Mount it as an additional folder in this window",
+                detail: dir.fsPath,
+                value: "add" as const,
+            },
+            {
+                label: showInOs,
+                description: "Open in the system file manager",
+                detail: dir.fsPath,
+                value: "os" as const,
+            },
+        ],
+        {
+            title: `Browse extracted artifact "${ctx.artifact.name}"`,
+            placeHolder: "How would you like to browse the files?",
+            ignoreFocusOut: true,
+        }
     );
-    await vscode.window.showInformationMessage(
-        `Asciinema — extracted artifact "${ctx.artifact.name}" to ${ctx.extracted.rootDir.fsPath}`
-    );
+    if (!choice) {
+        return;
+    }
+
+    try {
+        switch (choice.value) {
+            case "new":
+                await vscode.commands.executeCommand("vscode.openFolder", dir, {
+                    forceNewWindow: true,
+                });
+                return;
+            case "add": {
+                const existing = vscode.workspace.workspaceFolders ?? [];
+                const inserted = vscode.workspace.updateWorkspaceFolders(
+                    existing.length,
+                    null,
+                    {
+                        uri: dir,
+                        name: `artifact: ${ctx.artifact.name}`,
+                    }
+                );
+                if (!inserted) {
+                    // updateWorkspaceFolders returns false if the folder is
+                    // already there or VS Code refused — fall back to opening
+                    // it in a new window so the user still ends up somewhere.
+                    await vscode.commands.executeCommand(
+                        "vscode.openFolder",
+                        dir,
+                        { forceNewWindow: true }
+                    );
+                }
+                return;
+            }
+            case "os":
+                await vscode.env.openExternal(dir);
+                return;
+        }
+    } catch (err) {
+        await vscode.window.showErrorMessage(
+            `Couldn't open ${dir.fsPath}: ${(err as Error).message}`
+        );
+    }
+}
+
+function osFileManagerName(): string {
+    switch (process.platform) {
+        case "win32":
+            return "File Explorer";
+        case "darwin":
+            return "Finder";
+        default:
+            return "file manager";
+    }
 }

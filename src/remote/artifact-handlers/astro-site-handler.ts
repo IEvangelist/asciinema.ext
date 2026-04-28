@@ -8,6 +8,7 @@ import type {
 } from "./handler-types.js";
 import { detectStaticSite, type SiteDetection } from "./detect-static-site.js";
 import { formatBytesShort } from "../quickpick-helpers.js";
+import { launchStaticPreview } from "./static-site-handler.js";
 
 interface AstroCandidateData {
     readonly site: SiteDetection;
@@ -51,16 +52,32 @@ async function runAstroPreview(
         const choice = await vscode.window.showWarningMessage(
             "Astro CLI not found on PATH. Install it globally with `npm install -g astro`?",
             { modal: true },
-            "Install"
+            "Install",
+            "Use built-in static server"
         );
+        if (choice === "Use built-in static server") {
+            await launchStaticPreview(ctx, site, {
+                headerNote:
+                    "⚠ Astro CLI not installed — falling back to the built-in static server.",
+            });
+            return;
+        }
         if (choice !== "Install") {
             return;
         }
         const ok = await runNpmInstallAstro();
         if (!ok) {
-            await vscode.window.showErrorMessage(
-                "`npm install -g astro` did not complete successfully."
+            const fallback = await vscode.window.showErrorMessage(
+                "`npm install -g astro` did not complete successfully.",
+                "Use built-in static server",
+                "Cancel"
             );
+            if (fallback === "Use built-in static server") {
+                await launchStaticPreview(ctx, site, {
+                    headerNote:
+                        "⚠ Astro install failed — falling back to the built-in static server.",
+                });
+            }
             return;
         }
     }
@@ -119,7 +136,24 @@ async function launchAstroPreview(
     const closeEmitter = new vscode.EventEmitter<number | void>();
     let child: ChildProcessWithoutNullStreams | undefined;
     let urlOpened = false;
+    let fellBack = false;
     const urlRe = /(https?:\/\/[^\s]+)/i;
+
+    const fallbackToStatic = (reason: string): void => {
+        if (fellBack) {
+            return;
+        }
+        fellBack = true;
+        writeEmitter.fire(
+            ansi.dim(
+                `\r\nFalling back to built-in static server: ${reason}\r\n`
+            )
+        );
+        // Open the static preview in its own terminal; this one will close.
+        void launchStaticPreview(ctx, site, {
+            headerNote: `⚠ Astro preview failed (${reason}) — using the built-in static server instead.`,
+        });
+    };
 
     const pty: vscode.Pseudoterminal = {
         onDidWrite: writeEmitter.event,
@@ -145,6 +179,7 @@ async function launchAstroPreview(
                         `Failed to start astro: ${(err as Error).message}\r\n`
                     )
                 );
+                fallbackToStatic((err as Error).message);
                 closeEmitter.fire(1);
                 return;
             }
@@ -175,12 +210,18 @@ async function launchAstroPreview(
                 writeEmitter.fire(
                     ansi.red(`\r\nastro error: ${err.message}\r\n`)
                 );
+                if (!urlOpened) {
+                    fallbackToStatic(err.message);
+                }
                 closeEmitter.fire(1);
             });
             child.on("close", (code) => {
                 writeEmitter.fire(
                     ansi.dim(`\r\n[astro preview exited with code ${code}]\r\n`)
                 );
+                if (!urlOpened) {
+                    fallbackToStatic(`astro exited with code ${code ?? 0}`);
+                }
                 closeEmitter.fire(code ?? 0);
             });
         },
