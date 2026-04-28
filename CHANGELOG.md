@@ -2,6 +2,16 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.3.2] - 2026-04-28
+
+### Changed — Progress UX
+
+- **Multi-line progress notifications.** Download and extraction notifications now use the available vertical space to surface more detail per line:
+  - Line 1 — size / count headline (`458.3 MB of 695.1 MB · 65% · 12.4 MB/s`, or for extraction `12,403 of 27,718 files · 245.6 MB · 45%`).
+  - Line 2 — timing (`Elapsed 38s · ~21s remaining`, with rate appended for extraction).
+  - Line 3 — the humorous quip on its own line, so it no longer crowds the size info.
+- **Live ETA + transfer rate.** Both phases now compute a rolling estimate of remaining time and current throughput from elapsed time and fraction-complete. ETA is suppressed until enough progress has been made for the estimate to be meaningful.
+
 ## [0.3.1] - 2026-04-28
 
 ### Fixed

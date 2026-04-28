@@ -27,6 +27,7 @@ import {
 } from "./quickpick-helpers.js";
 import { showQuickPick } from "./artifact-handlers/quickpick.js";
 import { getDownloadQuip, getExtractionQuip } from "./download-quips.js";
+import { buildProgressMessage } from "./progress-format.js";
 import {
     listRecent,
     recordRecent,
@@ -428,11 +429,7 @@ async function runFlow(
                             return;
                         }
                         lastReport = now;
-                        const totalStr = p.total
-                            ? formatBytesShort(p.total)
-                            : "?";
-                        const recvStr = formatBytesShort(p.received);
-                        let message: string;
+                        const elapsedMs = now - startedAt;
                         let increment = 0;
                         if (p.total && p.total > 0) {
                             const pct = Math.min(
@@ -441,14 +438,13 @@ async function runFlow(
                             );
                             increment = pct - lastPct;
                             lastPct = pct;
-                            message = `${recvStr} of ${totalStr} (${pct}%)`;
-                        } else {
-                            message = `${recvStr} downloaded`;
                         }
-                        const quip = getDownloadQuip(now - startedAt);
-                        if (quip) {
-                            message = `${message} — ${quip}`;
-                        }
+                        const message = buildProgressMessage({
+                            received: p.received,
+                            total: p.total,
+                            elapsedMs,
+                            quip: getDownloadQuip(elapsedMs),
+                        });
                         progress.report({ message, increment });
                     }
                 );
@@ -576,12 +572,16 @@ async function runExtractWithProgress(
                             : 0;
                     const increment = pct - lastPct;
                     lastPct = pct;
-                    const sizeStr = formatBytesShort(p.bytesWritten);
-                    let message = `${p.filesWritten.toLocaleString()} / ${p.totalFiles.toLocaleString()} files · ${sizeStr} (${pct}%)`;
-                    const quip = getExtractionQuip(now - startedAt);
-                    if (quip) {
-                        message = `${message} — ${quip}`;
-                    }
+                    const elapsedMs = now - startedAt;
+                    const message = buildProgressMessage({
+                        received: p.bytesWritten,
+                        elapsedMs,
+                        files: {
+                            written: p.filesWritten,
+                            total: p.totalFiles,
+                        },
+                        quip: getExtractionQuip(elapsedMs),
+                    });
                     progress.report({ message, increment });
                 },
                 resume
