@@ -94,18 +94,21 @@ export async function openFromPullRequestCommand(
         return;
     }
 
-    const rawUrl = await vscode.window.showInputBox({
-        title: "GitHub — Artifacts Explorer",
-        prompt: "Paste a GitHub pull request URL",
-        placeHolder: "https://github.com/owner/repo/pull/123",
-        ignoreFocusOut: true,
-        validateInput: (value) =>
-            !value || parsePullRequestUrl(value)
-                ? undefined
-                : "Not a recognized GitHub pull request URL",
-    });
+    let rawUrl = choice.prefilledUrl;
     if (!rawUrl) {
-        return;
+        rawUrl = await vscode.window.showInputBox({
+            title: "GitHub — Artifacts Explorer",
+            prompt: "Paste a GitHub pull request URL",
+            placeHolder: "https://github.com/owner/repo/pull/123",
+            ignoreFocusOut: true,
+            validateInput: (value) =>
+                !value || parsePullRequestUrl(value)
+                    ? undefined
+                    : "Not a recognized GitHub pull request URL",
+        });
+        if (!rawUrl) {
+            return;
+        }
     }
 
     const coords = parsePullRequestUrl(rawUrl);
@@ -120,7 +123,7 @@ export async function openFromPullRequestCommand(
 }
 
 type StartingPointChoice =
-    | { kind: "new" }
+    | { kind: "new"; prefilledUrl?: string }
     | { kind: "recent"; entry: RecentArtifact };
 
 interface StartingPointItem extends vscode.QuickPickItem {
@@ -203,6 +206,14 @@ async function pickStartingPoint(
     return await new Promise<StartingPointChoice | undefined>((resolve) => {
         const qp = vscode.window.createQuickPick<StartingPointItem>();
         let recent = [...initialRecent];
+        let settled = false;
+        const finish = (value: StartingPointChoice | undefined) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            resolve(value);
+        };
         const refresh = () => {
             qp.items = buildStartingPointItems(recent);
             qp.buttons = recent.length > 0
@@ -212,7 +223,7 @@ async function pickStartingPoint(
         qp.title = "GitHub — Artifacts Explorer";
         qp.placeholder =
             recent.length > 0
-                ? `Pick a recent artifact, or download from a new PR… (${recent.length} cached)`
+                ? `Pick a recent artifact, or paste a PR URL to download a new one… (${recent.length} cached)`
                 : "Paste a GitHub pull request URL to download an artifact…";
         qp.matchOnDescription = true;
         qp.matchOnDetail = true;
@@ -256,22 +267,39 @@ async function pickStartingPoint(
         });
         qp.onDidAccept(() => {
             const picked = qp.selectedItems[0];
+            const typed = qp.value.trim();
             qp.hide();
-            if (!picked) {
-                resolve(undefined);
+            if (picked?.entry) {
+                finish({ kind: "recent", entry: picked.entry });
                 return;
             }
-            if (picked.entry) {
-                resolve({ kind: "recent", entry: picked.entry });
-            } else if (picked.choice) {
-                resolve(picked.choice);
-            } else {
-                resolve(undefined);
+            if (picked?.choice) {
+                // If user typed a URL into the filter while "Download from new
+                // PR…" was the only matching item, prefill it so they don't
+                // have to paste it twice.
+                if (
+                    picked.choice.kind === "new" &&
+                    typed &&
+                    parsePullRequestUrl(typed)
+                ) {
+                    finish({ kind: "new", prefilledUrl: typed });
+                } else {
+                    finish(picked.choice);
+                }
+                return;
             }
+            // No item matched the filter (common when the user pastes a PR
+            // URL directly into the search box). If the typed value parses
+            // as a PR URL, treat it as the intent.
+            if (typed && parsePullRequestUrl(typed)) {
+                finish({ kind: "new", prefilledUrl: typed });
+                return;
+            }
+            finish(undefined);
         });
         qp.onDidHide(() => {
             qp.dispose();
-            resolve(undefined);
+            finish(undefined);
         });
         qp.show();
     });

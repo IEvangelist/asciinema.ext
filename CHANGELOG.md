@@ -2,6 +2,12 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.3.1] - 2026-04-28
+
+### Fixed
+
+- **Command palette flow could silently exit after deleting a recent.** Pasting a PR URL directly into the QuickPick search box (instead of selecting the "Download from new PR…" item) is now detected and routed straight to the download flow with the URL pre-filled, so you no longer have to enter it twice. Also fixed a race between `onDidAccept` and `onDidHide` that could occasionally clobber a successful pick with an `undefined` resolution.
+
 ## [0.3.0] - 2026-04-28
 
 ### Added — Player settings cog ⚙
