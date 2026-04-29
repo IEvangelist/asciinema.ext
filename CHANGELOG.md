@@ -2,6 +2,12 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.3.3] - 2026-04-29
+
+### Changed
+
+- **Better icon for `.cast` recordings in the picker.** The "Asciinema — select a recording" QuickPick was using `$(file-media)`, which most VS Code themes render as a music note. Switched to `$(terminal)`, which actually communicates "terminal recording".
+
 ## [0.3.2] - 2026-04-28
 
 ### Changed — Progress UX

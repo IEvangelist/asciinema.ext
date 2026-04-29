@@ -2,7 +2,7 @@
   "name": "asciinema",
   "displayName": "GitHub Artifacts Explorer & Asciinema Player",
   "description": "Browse GitHub PR build artifacts in VS Code — play asciinema casts, preview Astro & static-site builds, and explore extracted files, with live download progress, recents, and a per-cast player settings cog.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",

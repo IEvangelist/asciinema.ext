@@ -129,7 +129,7 @@ async function pickCast(casts: CastInfo[]): Promise<CastInfo | undefined> {
         for (const cast of list) {
             const description = await describeCast(cast);
             items.push({
-                label: `$(file-media)  ${path.posix.basename(cast.relPath)}`,
+                label: `$(terminal)  ${path.posix.basename(cast.relPath)}`,
                 description,
                 detail: cast.relPath,
                 cast,
