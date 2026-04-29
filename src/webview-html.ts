@@ -1,12 +1,9 @@
 import * as vscode from "vscode";
 import {
-    DEFAULT_PLAYER_OPTIONS,
     PLAYER_OPTION_KEYS,
     THEME_CHOICES,
     toPlayerCreateOptions,
     type MergedResolution,
-    type PartialPlayerOptions,
-    type PlayerOptions,
 } from "./player-options.js";
 
 /**

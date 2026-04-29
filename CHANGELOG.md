@@ -2,6 +2,21 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.3.4] - 2026-04-29
+
+### Security — defense-in-depth
+
+- **Tightened `parsePullRequestUrl` regex** to GitHub's actual character rules (owner: alphanumerics + hyphens, max 39 chars; repo: alphanumerics + `.`, `_`, `-`, max 100 chars). The previous `[^/\s]+` allowed `?`, `#`, and `&` to slip into the captured owner/repo, which could leak into the downstream API request URL. No real-world exploit was demonstrated, but the parser was more permissive than the schema it fed into.
+- **Percent-encoded path segments** in `repoApiPath` and at every interpolation site in `src/remote/github-client.ts` (PR head, run list, artifact list, zip download). Defense-in-depth — the parser already constrains values, but encoding here ensures any future caller passing user-supplied owner/repo cannot inject path or query segments.
+- **NUL-byte rejection** in `safeJoinRelative`. Node's `path` and `fs` already throw on NUL, but rejecting up front gives a single clear failure mode and avoids platform-specific surprises.
+- **Static server no longer follows symlinks.** Switched `fs.stat` → `fs.lstat` and explicitly 404 anything that isn't a regular file or directory. Zip extraction already rejects symlink entries, but a manually-tampered cache directory shouldn't be able to exfiltrate arbitrary files via the loopback preview server either.
+
+### Tooling
+
+- **Working `npm run lint`.** Replaced the broken stale script with a real ESLint v9 flat-config setup (ESLint + `typescript-eslint`). Cleaned up the handful of unused imports it surfaced.
+- **More JSDoc on public APIs** in `extension.ts`, `player-options.ts`, and the security helpers.
+- **+5 new tests** covering tightened URL parsing, NUL-byte rejection, and the symlink-rejection path in the static server (which auto-skips on platforms that don't permit symlink creation, e.g. unprivileged Windows).
+
 ## [0.3.3] - 2026-04-29
 
 ### Changed

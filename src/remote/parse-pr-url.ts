@@ -8,6 +8,12 @@
  *   trailing slash, anchors, query strings
  *
  * Returns `undefined` on anything that isn't a plausible PR URL.
+ *
+ * The owner/repo character classes mirror GitHub's actual rules so injection
+ * characters (`?`, `#`, `&`, whitespace, etc.) cannot slip through into the
+ * downstream API URL path:
+ *   - owner: alphanumerics, hyphens (1-39 chars per GitHub's documented limit)
+ *   - repo:  alphanumerics, hyphens, underscores, periods (1-100 chars)
  */
 export interface PullRequestCoordinates {
     readonly owner: string;
@@ -16,7 +22,7 @@ export interface PullRequestCoordinates {
 }
 
 const PR_URL_PATTERN =
-    /^https?:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)(?:\/[\w-]+)?\/?(?:[?#].*)?$/i;
+    /^https?:\/\/github\.com\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]{1,100})\/pull\/(\d+)(?:\/[\w-]+)?\/?(?:[?#].*)?$/i;
 
 export function parsePullRequestUrl(
     raw: string

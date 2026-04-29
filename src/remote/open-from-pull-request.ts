@@ -14,10 +14,7 @@ import {
 } from "./github-client.js";
 import { ZipLimitError } from "./artifact-zip.js";
 import { extractArtifactToDisk } from "./temp-storage.js";
-import {
-    DEFAULT_DISK_LIMITS,
-    type DiskExtractionLimits,
-} from "./zip-extract.js";
+import type { DiskExtractionLimits } from "./zip-extract.js";
 import { dispatchHandler } from "./artifact-handlers/dispatcher.js";
 import type { HandlerContext } from "./artifact-handlers/handler-types.js";
 import {

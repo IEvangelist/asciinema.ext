@@ -7,7 +7,6 @@ import type {
     HandlerContext,
 } from "./handler-types.js";
 import { detectStaticSite, type SiteDetection } from "./detect-static-site.js";
-import { formatBytesShort } from "../quickpick-helpers.js";
 import { launchStaticPreview } from "./static-site-handler.js";
 
 interface AstroCandidateData {

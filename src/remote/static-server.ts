@@ -137,14 +137,48 @@ export function startStaticServer(
                 return;
             }
 
-            fs.stat(resolved, (statErr, stat) => {
+            fs.lstat(resolved, (statErr, stat) => {
                 if (statErr || !stat) {
                     respond(404, NOT_FOUND_BODY, "text/html; charset=utf-8");
                     return;
                 }
-                const target = stat.isDirectory()
-                    ? path.join(resolved, "index.html")
-                    : resolved;
+                // Defense-in-depth: refuse to follow symlinks placed inside
+                // the served root. Zip extraction already rejects symlink
+                // entries, but a manually-tampered cache directory shouldn't
+                // be able to exfiltrate arbitrary files via the loopback
+                // server either.
+                if (stat.isSymbolicLink()) {
+                    respond(404, NOT_FOUND_BODY, "text/html; charset=utf-8");
+                    return;
+                }
+                if (stat.isDirectory()) {
+                    const indexPath = path.join(resolved, "index.html");
+                    fs.lstat(indexPath, (indexErr, indexStat) => {
+                        if (
+                            indexErr ||
+                            !indexStat ||
+                            indexStat.isSymbolicLink() ||
+                            !indexStat.isFile()
+                        ) {
+                            respond(
+                                404,
+                                NOT_FOUND_BODY,
+                                "text/html; charset=utf-8"
+                            );
+                            return;
+                        }
+                        serveFile(indexPath);
+                    });
+                    return;
+                }
+                if (!stat.isFile()) {
+                    respond(404, NOT_FOUND_BODY, "text/html; charset=utf-8");
+                    return;
+                }
+                serveFile(resolved);
+            });
+
+            function serveFile(target: string): void {
                 fs.readFile(target, (readErr, data) => {
                     if (readErr) {
                         respond(404, NOT_FOUND_BODY, "text/html; charset=utf-8");
@@ -167,7 +201,7 @@ export function startStaticServer(
                     }
                     respond(200, data, lookupMime(target));
                 });
-            });
+            }
         });
 
         server.on("error", reject);

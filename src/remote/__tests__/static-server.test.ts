@@ -106,6 +106,29 @@ describe("startStaticServer", () => {
         );
         assert.ok(!traversal.body.includes("root:"));
     });
+
+    it("does not follow symlinks placed inside the served root", async (t) => {
+        // Symlink creation requires elevated privileges on Windows; skip
+        // there rather than fail the suite when SeCreateSymbolicLinkPrivilege
+        // is missing.
+        const linkTarget = path.resolve(tmpRoot, "..", "outside.txt");
+        const linkPath = path.join(tmpRoot, "escape.txt");
+        await fs.writeFile(linkTarget, "SECRET", "utf8");
+        try {
+            await fs.symlink(linkTarget, linkPath);
+        } catch {
+            t.skip("symlink not permitted on this platform");
+            return;
+        }
+        try {
+            const resp = await fetchText(`${server!.url}/escape.txt`);
+            assert.equal(resp.status, 404);
+            assert.ok(!resp.body.includes("SECRET"));
+        } finally {
+            await fs.rm(linkPath, { force: true });
+            await fs.rm(linkTarget, { force: true });
+        }
+    });
 });
 
 interface FetchedResponse {

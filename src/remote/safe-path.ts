@@ -15,7 +15,13 @@ export function safeJoinRelative(
     if (!entryName || entryName.length === 0) {
         return undefined;
     }
-    let normalized = entryName.replace(/\\/g, "/").replace(/^\/+/, "");
+    // Reject NUL bytes outright. Node's `path` and `fs` will throw on these,
+    // but rejecting up front gives a single, clearer failure mode and avoids
+    // any platform-specific surprises (e.g. C runtime truncating at NUL).
+    if (entryName.includes("\0")) {
+        return undefined;
+    }
+    const normalized = entryName.replace(/\\/g, "/").replace(/^\/+/, "");
     if (normalized.length === 0) {
         return undefined;
     }

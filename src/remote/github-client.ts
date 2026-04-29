@@ -4,6 +4,18 @@ import type { PullRequestCoordinates } from "./parse-pr-url.js";
 const GITHUB_API = "https://api.github.com";
 const AUTH_SCOPES = ["repo"];
 
+/**
+ * Builds a `/repos/{owner}/{repo}` API path with each segment percent-encoded.
+ *
+ * Defense-in-depth: while {@link parsePullRequestUrl} already constrains
+ * owner/repo to GitHub's documented character set, encoding here ensures any
+ * future caller passing user-supplied values cannot inject path or query
+ * segments into the request URL.
+ */
+function repoApiPath(coords: PullRequestCoordinates): string {
+    return `/repos/${encodeURIComponent(coords.owner)}/${encodeURIComponent(coords.repo)}`;
+}
+
 export interface PullRequestHead {
     readonly sha: string;
     readonly ref: string;
@@ -116,7 +128,7 @@ export async function getPullRequestHead(
     const pr = await githubFetch<{
         head: { sha: string; ref: string };
         html_url: string;
-    }>(token, `/repos/${coords.owner}/${coords.repo}/pulls/${coords.number}`);
+    }>(token, `${repoApiPath(coords)}/pulls/${encodeURIComponent(String(coords.number))}`);
     return {
         sha: pr.head.sha,
         ref: pr.head.ref,
@@ -147,7 +159,7 @@ async function listCompletedRunsForSha(
         }>;
     }>(
         token,
-        `/repos/${coords.owner}/${coords.repo}/actions/runs?head_sha=${headSha}&status=completed&per_page=50`
+        `${repoApiPath(coords)}/actions/runs?head_sha=${encodeURIComponent(headSha)}&status=completed&per_page=50`
     );
     return data.workflow_runs.map((r) => ({
         id: r.id,
@@ -181,7 +193,7 @@ async function listArtifactsForRun(
         }>;
     }>(
         token,
-        `/repos/${coords.owner}/${coords.repo}/actions/runs/${runId}/artifacts?per_page=100`
+        `${repoApiPath(coords)}/actions/runs/${encodeURIComponent(String(runId))}/artifacts?per_page=100`
     );
     return data.artifacts
         .filter((a) => !a.expired)
@@ -250,7 +262,7 @@ export async function downloadArtifactZip(
     let response: Response;
     try {
         response = await fetch(
-            `${GITHUB_API}/repos/${coords.owner}/${coords.repo}/actions/artifacts/${artifactId}/zip`,
+            `${GITHUB_API}${repoApiPath(coords)}/actions/artifacts/${encodeURIComponent(String(artifactId))}/zip`,
             {
                 headers: {
                     Authorization: `Bearer ${token}`,

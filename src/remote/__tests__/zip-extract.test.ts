@@ -27,4 +27,8 @@ describe("safeJoinRelative", () => {
     it("rejects absolute Windows paths", () => {
         assert.equal(safeJoinRelative(dest, "C:/Windows/system32"), undefined);
     });
+    it("rejects entries containing NUL bytes", () => {
+        assert.equal(safeJoinRelative(dest, "a\0b.txt"), undefined);
+        assert.equal(safeJoinRelative(dest, "\0"), undefined);
+    });
 });

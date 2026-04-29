@@ -36,6 +36,7 @@ export interface PlayerOptions {
 
 export type PartialPlayerOptions = Partial<PlayerOptions>;
 
+/** Baked-in defaults — the bottom layer of the three-tier resolution. */
 export const DEFAULT_PLAYER_OPTIONS: PlayerOptions = {
     autoPlay: true,
     preload: false,
@@ -54,10 +55,15 @@ export const DEFAULT_PLAYER_OPTIONS: PlayerOptions = {
     poster: "",
 };
 
+/** All keys of {@link PlayerOptions} as a readonly tuple, derived from the defaults. */
 export const PLAYER_OPTION_KEYS = Object.keys(
     DEFAULT_PLAYER_OPTIONS
 ) as readonly (keyof PlayerOptions)[];
 
+/**
+ * Theme identifiers accepted by the asciinema player. `"auto"` is our own
+ * convention meaning "follow VS Code's theme".
+ */
 export const THEME_CHOICES = [
     "auto",
     "asciinema",

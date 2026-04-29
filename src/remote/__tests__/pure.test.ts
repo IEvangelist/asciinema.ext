@@ -86,6 +86,54 @@ describe("parsePullRequestUrl", () => {
             undefined
         );
     });
+
+    it("rejects owner names containing query/hash injection characters", () => {
+        // Pre-tightening, "[^/\\s]+" allowed `?` / `#` / `&` to be part of the
+        // captured owner, which would then leak into the GitHub API URL path.
+        assert.equal(
+            parsePullRequestUrl(
+                "https://github.com/legit?per_page=1/repo/pull/1"
+            ),
+            undefined
+        );
+        assert.equal(
+            parsePullRequestUrl("https://github.com/me&you/repo/pull/1"),
+            undefined
+        );
+        assert.equal(
+            parsePullRequestUrl("https://github.com/me%20you/repo/pull/1"),
+            undefined
+        );
+    });
+
+    it("rejects owner names that violate GitHub's character rules", () => {
+        // GitHub usernames are alphanumerics + hyphens, max 39 chars.
+        assert.equal(
+            parsePullRequestUrl("https://github.com/-leadinghyphen/r/pull/1"),
+            undefined
+        );
+        const tooLong = "a".repeat(40);
+        assert.equal(
+            parsePullRequestUrl(`https://github.com/${tooLong}/r/pull/1`),
+            undefined
+        );
+    });
+
+    it("accepts GitHub-shaped owner and repo names with allowed punctuation", () => {
+        // Repo names allow `.`, `_`, `-`.
+        assert.deepEqual(
+            parsePullRequestUrl(
+                "https://github.com/some-owner/repo.with.dots/pull/42"
+            ),
+            { owner: "some-owner", repo: "repo.with.dots", number: 42 }
+        );
+        assert.deepEqual(
+            parsePullRequestUrl(
+                "https://github.com/dotnet/aspire_dev-2.0/pull/123"
+            ),
+            { owner: "dotnet", repo: "aspire_dev-2.0", number: 123 }
+        );
+    });
 });
 
 describe("sanitizeCastFileName", () => {
