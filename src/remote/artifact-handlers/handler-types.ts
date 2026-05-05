@@ -1,15 +1,17 @@
 import * as vscode from "vscode";
 import type { ExtractedArtifact } from "../zip-extract.js";
 import type { WorkflowArtifact, WorkflowRunSummary } from "../github-client.js";
-import type { PullRequestCoordinates } from "../parse-pr-url.js";
+import type { RepoCoordinates } from "../artifact-source.js";
 
 /**
  * Context passed to every artifact handler. Built once after the artifact
- * zip has been downloaded and inflated to disk.
+ * zip has been downloaded and inflated to disk. Handlers see only the
+ * owner+repo coordinates — PR/run-specific metadata lives on the
+ * persisted `RecentArtifact` (and its `source` discriminator), not here.
  */
 export interface HandlerContext {
     readonly extensionContext: vscode.ExtensionContext;
-    readonly coords: PullRequestCoordinates;
+    readonly coords: RepoCoordinates;
     readonly run: WorkflowRunSummary;
     readonly artifact: WorkflowArtifact;
     readonly extracted: ExtractedArtifact;

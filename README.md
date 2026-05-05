@@ -3,7 +3,7 @@
 [![Version](https://badgen.net/vs-marketplace/v/davidpine-dev.asciinema?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
 
-> **Browse GitHub PR build artifacts straight from VS Code.** Point at any pull request, grab its CI artifacts, and the extension figures out the right way to open them — `.cast` recordings get the asciinema player, HTML sites get served from an embedded HTTP server and opened in your choice of VS Code's Simple Browser or your default browser, and everything else opens in a folder browser.
+> **Browse GitHub PR and CI run artifacts straight from VS Code.** Point at any pull request *or* workflow run, grab its CI artifacts, and the extension figures out the right way to open them — `.cast` recordings get the asciinema player, HTML sites get served from an embedded HTTP server and opened in your choice of VS Code's Simple Browser or your default browser, and everything else opens in a folder browser.
 
 <p align="center">
   <img src="media/demo.gif" alt="Playing an asciinema .cast recording inside a VS Code editor tab" />
@@ -23,7 +23,7 @@ code --install-extension davidpine-dev.asciinema
 
 ### 🚀 GitHub Artifacts Explorer
 
-Run **`GitHub: Artifacts Explorer`** from the command palette, paste a PR URL, and the extension downloads its workflow artifacts and dispatches each one to the right viewer based on content:
+Run **`GitHub: Artifacts Explorer`** from the command palette, paste a PR URL *or* an Actions run URL, and the extension downloads its workflow artifacts and dispatches each one to the right viewer based on content. Got a repo that doesn't use PRs? Run **`GitHub: Open Artifacts from CI Run`** and paste a `https://github.com/owner/repo/actions/runs/{id}` URL instead — same dispatch pipeline, no PR required.
 
 | Artifact contains… | Opens with |
 |---|---|
@@ -62,6 +62,16 @@ Just open them. The asciinema player takes over the tab. Click the ⚙ Settings 
 2. Pick a recent artifact, or paste a PR URL to download a new one (e.g., `https://github.com/owner/repo/pull/123`).
 3. Sign in with VS Code's built-in GitHub auth (one-time, `repo` scope).
 4. Let the extension dispatch on content type — it'll auto-pick the best way to open the artifact.
+
+You can also paste an Actions run URL into the same prompt — it works the same way.
+
+### From a GitHub Actions CI run
+
+For repos that don't use pull requests (or when you want to inspect a specific run regardless of PR):
+
+1. `Ctrl+Shift+P` → **`GitHub: Open Artifacts from CI Run`**
+2. Paste a workflow-run URL (e.g., `https://github.com/owner/repo/actions/runs/12345678`).
+3. Same artifact picker, same dispatch. Recents are unified across both commands.
 
 Works with public and private repos. Recents persist across VS Code restarts; their files are kept on disk for instant re-open and cleaned up when forgotten.
 

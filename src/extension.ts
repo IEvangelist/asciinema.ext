@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { CastPreviewProvider } from "./cast-preview-provider.js";
 import { openFromPullRequestCommand } from "./remote/open-from-pull-request.js";
+import { openFromActionsRunCommand } from "./remote/open-from-actions-run.js";
 import {
     cleanupCurrentSession,
     cleanupOlderSessions,
@@ -72,6 +73,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 } catch (err) {
                     console.error(
                         "[asciinema] openFromPullRequest failed:",
+                        err
+                    );
+                    await vscode.window.showErrorMessage(
+                        `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                    );
+                }
+            }
+        )
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            "asciinema.openFromActionsRun",
+            async () => {
+                try {
+                    await openFromActionsRunCommand(context);
+                } catch (err) {
+                    console.error(
+                        "[asciinema] openFromActionsRun failed:",
                         err
                     );
                     await vscode.window.showErrorMessage(

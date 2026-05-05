@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import type { PullRequestCoordinates } from "./parse-pr-url.js";
+import type { RepoCoordinates } from "./artifact-source.js";
 
 const GITHUB_API = "https://api.github.com";
 const AUTH_SCOPES = ["repo"];
@@ -7,13 +8,13 @@ const AUTH_SCOPES = ["repo"];
 /**
  * Builds a `/repos/{owner}/{repo}` API path with each segment percent-encoded.
  *
- * Defense-in-depth: while {@link parsePullRequestUrl} already constrains
- * owner/repo to GitHub's documented character set, encoding here ensures any
- * future caller passing user-supplied values cannot inject path or query
- * segments into the request URL.
+ * Defense-in-depth: while the URL parsers already constrain owner/repo to
+ * GitHub's documented character set, encoding here ensures any future caller
+ * passing user-supplied values cannot inject path or query segments into the
+ * request URL.
  */
-function repoApiPath(coords: PullRequestCoordinates): string {
-    return `/repos/${encodeURIComponent(coords.owner)}/${encodeURIComponent(coords.repo)}`;
+function repoApiPath(repo: RepoCoordinates): string {
+    return `/repos/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.repo)}`;
 }
 
 export interface PullRequestHead {
@@ -39,6 +40,7 @@ export interface WorkflowRunSummary {
     readonly headBranch: string | null;
     readonly actor: string | null;
     readonly conclusion: string | null;
+    readonly status: string | null;
     readonly htmlUrl: string;
     readonly createdAt: string;
 }
@@ -154,6 +156,7 @@ async function listCompletedRunsForSha(
             actor?: { login?: string } | null;
             triggering_actor?: { login?: string } | null;
             conclusion: string | null;
+            status: string | null;
             html_url: string;
             created_at: string;
         }>;
@@ -161,7 +164,23 @@ async function listCompletedRunsForSha(
         token,
         `${repoApiPath(coords)}/actions/runs?head_sha=${encodeURIComponent(headSha)}&status=completed&per_page=50`
     );
-    return data.workflow_runs.map((r) => ({
+    return data.workflow_runs.map(mapWorkflowRun);
+}
+
+function mapWorkflowRun(r: {
+    id: number;
+    name: string | null;
+    run_number: number;
+    head_sha: string;
+    head_branch: string | null;
+    actor?: { login?: string } | null;
+    triggering_actor?: { login?: string } | null;
+    conclusion: string | null;
+    status: string | null;
+    html_url: string;
+    created_at: string;
+}): WorkflowRunSummary {
+    return {
         id: r.id,
         name: r.name,
         runNumber: r.run_number,
@@ -169,42 +188,89 @@ async function listCompletedRunsForSha(
         headBranch: r.head_branch,
         actor: r.actor?.login ?? r.triggering_actor?.login ?? null,
         conclusion: r.conclusion,
+        status: r.status,
         htmlUrl: r.html_url,
         createdAt: r.created_at,
-    }));
+    };
 }
 
 /**
- * Lists non-expired artifacts for a run.
+ * Fetches a single workflow run by id.
  */
-async function listArtifactsForRun(
+export async function getWorkflowRunById(
     token: string,
-    coords: PullRequestCoordinates,
+    repo: RepoCoordinates,
     runId: number
-): Promise<WorkflowArtifact[]> {
-    const data = await githubFetch<{
-        artifacts: Array<{
-            id: number;
-            name: string;
-            size_in_bytes: number;
-            expired: boolean;
-            created_at: string;
-            workflow_run: { id: number };
-        }>;
+): Promise<WorkflowRunSummary> {
+    const r = await githubFetch<{
+        id: number;
+        name: string | null;
+        run_number: number;
+        head_sha: string;
+        head_branch: string | null;
+        actor?: { login?: string } | null;
+        triggering_actor?: { login?: string } | null;
+        conclusion: string | null;
+        status: string | null;
+        html_url: string;
+        created_at: string;
     }>(
         token,
-        `${repoApiPath(coords)}/actions/runs/${encodeURIComponent(String(runId))}/artifacts?per_page=100`
+        `${repoApiPath(repo)}/actions/runs/${encodeURIComponent(String(runId))}`
     );
-    return data.artifacts
-        .filter((a) => !a.expired)
-        .map((a) => ({
-            id: a.id,
-            name: a.name,
-            sizeInBytes: a.size_in_bytes,
-            expired: a.expired,
-            createdAt: a.created_at,
-            runId: a.workflow_run.id,
-        }));
+    return mapWorkflowRun(r);
+}
+
+/**
+ * Lists non-expired artifacts for a run. Paginates through all pages
+ * (`per_page=100`) so callers see every artifact on a run.
+ */
+export async function listArtifactsForRun(
+    token: string,
+    repo: RepoCoordinates,
+    runId: number
+): Promise<WorkflowArtifact[]> {
+    const collected: WorkflowArtifact[] = [];
+    const PER_PAGE = 100;
+    const MAX_PAGES = 50; // hard cap — 5,000 artifacts is way past anything sane
+    let page = 1;
+    while (page <= MAX_PAGES) {
+        const data = await githubFetch<{
+            total_count: number;
+            artifacts: Array<{
+                id: number;
+                name: string;
+                size_in_bytes: number;
+                expired: boolean;
+                created_at: string;
+                workflow_run: { id: number };
+            }>;
+        }>(
+            token,
+            `${repoApiPath(repo)}/actions/runs/${encodeURIComponent(String(runId))}/artifacts?per_page=${PER_PAGE}&page=${page}`
+        );
+        for (const a of data.artifacts) {
+            if (a.expired) {
+                continue;
+            }
+            collected.push({
+                id: a.id,
+                name: a.name,
+                sizeInBytes: a.size_in_bytes,
+                expired: a.expired,
+                createdAt: a.created_at,
+                runId: a.workflow_run.id,
+            });
+        }
+        if (
+            data.artifacts.length < PER_PAGE ||
+            collected.length >= data.total_count
+        ) {
+            break;
+        }
+        page++;
+    }
+    return collected;
 }
 
 /**
@@ -254,7 +320,7 @@ export interface DownloadProgress {
  */
 export async function downloadArtifactZip(
     token: string,
-    coords: PullRequestCoordinates,
+    repo: RepoCoordinates,
     artifactId: number,
     maxBytes: number,
     onProgress?: (p: DownloadProgress) => void
@@ -262,7 +328,7 @@ export async function downloadArtifactZip(
     let response: Response;
     try {
         response = await fetch(
-            `${GITHUB_API}${repoApiPath(coords)}/actions/artifacts/${encodeURIComponent(String(artifactId))}/zip`,
+            `${GITHUB_API}${repoApiPath(repo)}/actions/artifacts/${encodeURIComponent(String(artifactId))}/zip`,
             {
                 headers: {
                     Authorization: `Bearer ${token}`,

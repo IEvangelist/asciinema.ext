@@ -2,6 +2,30 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.5.0] - 2026-05-05
+
+### Added — Open artifacts from any CI run 🏃
+
+- **New command: `GitHub: Open Artifacts from CI Run`.** Paste a workflow-run URL like `https://github.com/owner/repo/actions/runs/12345` and skip the PR step entirely. Perfect for repos that don't use pull requests, or when you want to inspect a specific historical run.
+- The existing **`GitHub: Artifacts Explorer`** command's input box now also accepts run URLs — paste either format and it auto-routes to the right flow.
+- **Run URL parser** handles tail variants users tend to copy: `/job/{id}`, `/jobs/{id}`, `/attempts/N`, `/workflow`, plus query strings and hash fragments. Owner/repo character classes mirror the PR parser's tightened defenses against injection.
+- **Status-aware empty state.** If you paste a run URL for a workflow that's still in progress with no artifacts uploaded yet, you get a clear "Run is still in_progress — no artifacts uploaded yet" message instead of a generic "no artifacts" error.
+
+### Changed — Recents now show source
+
+- Recents from PR-based downloads still show `$(git-pull-request) #123`; run-only entries show `$(github-action) run #N`. The "Open PR on github.com" item button only appears when the entry has an associated PR; everything else gets "Open run" + "Forget".
+- New recent-key format namespaces by source kind, run id, and artifact id so PR-sourced and run-sourced entries can never collide. **Backward-compatible:** existing pre-v0.5 stored entries are migrated in-memory on activation and re-persisted on the next write.
+
+### Fixed
+
+- **Artifact list pagination.** `listArtifactsForRun` now walks every page of `per_page=100` results (capped at 5,000 artifacts as a safety ceiling) — runs with more than 100 artifacts no longer silently hide the rest.
+
+### Internal
+
+- New `RepoCoordinates` (just `owner`+`repo`) for handler/download contexts; `ArtifactSource` discriminated union (`{ kind: "pr" | "run" }`) for everything that needs to know where the artifact came from. Clean type boundary instead of an optional `coords.number`.
+- Extracted `pickAndOpenArtifact` shared helper used by both PR and run flows.
+- Generalized `handleApiError` so errors surfaced from the run flow say "Open Run in Browser" instead of "Open PR in Browser".
+
 ## [0.4.0] - 2026-05-04
 
 ### Removed — Astro CLI integration & framework-specific previews

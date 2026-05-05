@@ -2,11 +2,12 @@ import * as vscode from "vscode";
 import * as fs from "node:fs/promises";
 import type { ExtractedArtifact } from "./zip-extract.js";
 import type { WorkflowArtifact, WorkflowRunSummary } from "./github-client.js";
+import type { ArtifactSource } from "./artifact-source.js";
 import type { PullRequestCoordinates } from "./parse-pr-url.js";
 
 export interface RecentArtifact {
     readonly key: string;
-    readonly coords: PullRequestCoordinates;
+    readonly source: ArtifactSource;
     readonly run: WorkflowRunSummary;
     readonly artifact: WorkflowArtifact;
     readonly extracted: ExtractedArtifact;
@@ -19,16 +20,21 @@ const MAX_RECENTS = 25;
 let cache = new Map<string, RecentArtifact>();
 let storage: vscode.Memento | undefined;
 
-function makeKey(
-    coords: PullRequestCoordinates,
-    artifactId: number
-): string {
-    return `${coords.owner}/${coords.repo}#${coords.number}::${artifactId}`;
+/**
+ * Stable key for a recent entry. Includes the source kind, run id, and
+ * artifact id so PR-sourced and run-sourced entries can never collide even
+ * when they reference the same underlying artifact.
+ */
+function makeKey(source: ArtifactSource, runId: number, artifactId: number): string {
+    if (source.kind === "pr") {
+        return `${source.coords.owner}/${source.coords.repo}::pr${source.coords.number}::run${runId}::artifact${artifactId}`;
+    }
+    return `${source.coords.owner}/${source.coords.repo}::run${runId}::artifact${artifactId}`;
 }
 
-interface StoredRecent {
+interface StoredRecentV2 {
     readonly key: string;
-    readonly coords: PullRequestCoordinates;
+    readonly source: ArtifactSource;
     readonly run: WorkflowRunSummary;
     readonly artifact: WorkflowArtifact;
     readonly extracted: {
@@ -39,10 +45,34 @@ interface StoredRecent {
     readonly downloadedAt: number;
 }
 
-function serialize(entry: RecentArtifact): StoredRecent {
+/**
+ * Pre-discriminated-source schema used before the run-URL command landed.
+ * Recognized at deserialize time and converted into the v2 shape with
+ * `source: { kind: "pr", coords }`.
+ */
+interface StoredRecentV1 {
+    readonly key: string;
+    readonly coords: PullRequestCoordinates;
+    readonly run: WorkflowRunSummary;
+    readonly artifact: WorkflowArtifact;
+    readonly extracted: {
+        readonly rootDir: string;
+        readonly files: string[];
+        readonly totalBytes: number;
+    };
+    readonly downloadedAt: number;
+}
+
+type AnyStoredRecent = StoredRecentV2 | StoredRecentV1;
+
+function isV2(s: AnyStoredRecent): s is StoredRecentV2 {
+    return (s as StoredRecentV2).source !== undefined;
+}
+
+function serialize(entry: RecentArtifact): StoredRecentV2 {
     return {
         key: entry.key,
-        coords: entry.coords,
+        source: entry.source,
         run: entry.run,
         artifact: entry.artifact,
         extracted: {
@@ -54,10 +84,13 @@ function serialize(entry: RecentArtifact): StoredRecent {
     };
 }
 
-function deserialize(s: StoredRecent): RecentArtifact {
+function deserialize(s: AnyStoredRecent): RecentArtifact {
+    const source: ArtifactSource = isV2(s)
+        ? s.source
+        : { kind: "pr", coords: s.coords };
     return {
         key: s.key,
-        coords: s.coords,
+        source,
         run: s.run,
         artifact: s.artifact,
         extracted: {
@@ -81,14 +114,17 @@ async function persist(): Promise<void> {
  * Hydrates the recents cache from `globalState` and prunes any entries whose
  * extraction directory no longer exists on disk. Must be called from the
  * extension's `activate` before any UI uses recents.
+ *
+ * Backward-compatible: legacy v1 entries (with `coords` instead of `source`)
+ * are migrated in-memory to the v2 shape and re-persisted on the next write.
  */
 export async function initRecentArtifacts(
     context: vscode.ExtensionContext
 ): Promise<void> {
     storage = context.globalState;
-    let stored: StoredRecent[] = [];
+    let stored: AnyStoredRecent[] = [];
     try {
-        stored = storage.get<StoredRecent[]>(STORAGE_KEY, []) ?? [];
+        stored = storage.get<AnyStoredRecent[]>(STORAGE_KEY, []) ?? [];
         if (!Array.isArray(stored)) {
             stored = [];
         }
@@ -116,20 +152,19 @@ export async function initRecentArtifacts(
 
 /**
  * Records a successfully downloaded + extracted artifact so the next
- * invocation of the command can offer it as a "recent" entry instead of
- * re-downloading. Persists to globalState.
+ * invocation of any artifacts command can offer it as a "recent" entry
+ * instead of re-downloading. Persists to globalState.
  */
 export async function recordRecent(
     entry: Omit<RecentArtifact, "key" | "downloadedAt">
 ): Promise<RecentArtifact> {
-    const key = makeKey(entry.coords, entry.artifact.id);
+    const key = makeKey(entry.source, entry.run.id, entry.artifact.id);
     const stored: RecentArtifact = {
         ...entry,
         key,
         downloadedAt: Date.now(),
     };
     cache.set(key, stored);
-    // Cap to MAX_RECENTS, evicting oldest.
     if (cache.size > MAX_RECENTS) {
         const sorted = [...cache.values()].sort(
             (a, b) => b.downloadedAt - a.downloadedAt
