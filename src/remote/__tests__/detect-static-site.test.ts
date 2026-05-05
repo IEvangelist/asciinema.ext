@@ -51,55 +51,32 @@ describe("detectStaticSite", () => {
         assert.equal(got, undefined);
     });
 
-    it("detects astro via _astro/ subdirectory", async () => {
-        const ex = await setupCase("astro-dir", {
-            "dist/index.html": "<html></html>",
-            "dist/_astro/main.abc.css": ".x{}",
+    it("detects an index.html at the artifact root", async () => {
+        const ex = await setupCase("root", {
+            "index.html": "<html></html>",
+            "style.css": "body{}",
         });
         const got = await detectStaticSite(ex as never);
         assert.ok(got);
-        assert.equal(got!.isAstro, true);
-        assert.match(got!.astroMarkers.join(" "), /_astro/);
+        assert.equal(got!.indexRelPath, "index.html");
+        assert.equal(got!.siteRoot, ex.rootDir.fsPath);
+        assert.equal(got!.fileCount, 2);
     });
 
-    it("detects astro via package.json dependency", async () => {
-        const ex = await setupCase("astro-pkg", {
-            "package.json": JSON.stringify({
-                dependencies: { astro: "^4.5.0" },
-            }),
-            "dist/index.html": "<html></html>",
-        });
-        const got = await detectStaticSite(ex as never);
-        assert.ok(got);
-        assert.equal(got!.isAstro, true);
-        assert.match(got!.astroMarkers.join(" "), /astro@\^4\.5\.0/);
-    });
-
-    it("detects astro via generator meta tag", async () => {
-        const ex = await setupCase("astro-meta", {
-            "out/index.html":
-                '<html><head><meta name="generator" content="Astro v4.5.0"></head></html>',
-        });
-        const got = await detectStaticSite(ex as never);
-        assert.ok(got);
-        assert.equal(got!.isAstro, true);
-        assert.match(got!.astroMarkers.join(" "), /generator/);
-    });
-
-    it("returns non-astro detection for plain static site", async () => {
-        const ex = await setupCase("plain", {
+    it("detects nested static sites", async () => {
+        const ex = await setupCase("nested", {
             "site/index.html": "<html><body>hello</body></html>",
             "site/style.css": "body{}",
         });
         const got = await detectStaticSite(ex as never);
         assert.ok(got);
-        assert.equal(got!.isAstro, false);
-        assert.equal(got!.astroMarkers.length, 0);
+        assert.equal(got!.indexRelPath, "site/index.html");
         assert.equal(path.basename(got!.siteRoot), "site");
+        assert.equal(got!.fileCount, 2);
     });
 
     it("prefers shallowest index.html when multiple exist", async () => {
-        const ex = await setupCase("nested", {
+        const ex = await setupCase("multi", {
             "dist/index.html": "<html></html>",
             "dist/sub/page/index.html": "<html></html>",
         });

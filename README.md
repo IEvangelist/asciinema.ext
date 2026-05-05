@@ -3,7 +3,7 @@
 [![Version](https://badgen.net/vs-marketplace/v/davidpine-dev.asciinema?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=davidpine-dev.asciinema)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
 
-> **Browse GitHub PR build artifacts straight from VS Code.** Point at any pull request, grab its CI artifacts, and the extension figures out the right way to open them — `.cast` recordings get the asciinema player, Astro builds get `astro preview`, generic static sites get an embedded HTTP server, and everything else opens in a folder browser.
+> **Browse GitHub PR build artifacts straight from VS Code.** Point at any pull request, grab its CI artifacts, and the extension figures out the right way to open them — `.cast` recordings get the asciinema player, HTML sites get served from an embedded HTTP server and opened in your choice of VS Code's Simple Browser or your default browser, and everything else opens in a folder browser.
 
 <p align="center">
   <img src="media/demo.gif" alt="Playing an asciinema .cast recording inside a VS Code editor tab" />
@@ -28,8 +28,7 @@ Run **`GitHub: Artifacts Explorer`** from the command palette, paste a PR URL, a
 | Artifact contains… | Opens with |
 |---|---|
 | `.cast` files | Asciinema player picker (with cast duration parsed from the header) |
-| `package.json` with an `astro` dep, `_astro/` directory, or astro generator meta | `astro preview` in a managed pseudoterminal + Simple Browser, with auto-fallback to the built-in static server if astro isn't installed or fails to start |
-| Any shallowest `index.html` | Embedded Node HTTP server (port 0, traversal-guarded, mime-mapped) + Simple Browser |
+| Any shallowest `index.html` | Embedded Node HTTP server (port 0, traversal-guarded, mime-mapped) — pick **VS Code Simple Browser** or **default browser** |
 | Anything else | "Browse extracted files…" sub-picker (open in new window / add to workspace / show in OS file manager) |
 
 **Recents that actually work.** Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan dirs are cleaned at activation time.

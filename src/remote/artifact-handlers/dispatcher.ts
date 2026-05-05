@@ -5,15 +5,10 @@ import type {
     HandlerContext,
 } from "./handler-types.js";
 import { castHandler } from "./cast-handler.js";
-import { astroSiteHandler } from "./astro-site-handler.js";
 import { staticSiteHandler } from "./static-site-handler.js";
 import { showQuickPick } from "./quickpick.js";
 
-const HANDLERS: readonly ArtifactHandler[] = [
-    castHandler,
-    astroSiteHandler,
-    staticSiteHandler,
-];
+const HANDLERS: readonly ArtifactHandler[] = [castHandler, staticSiteHandler];
 
 interface DispatchItem extends vscode.QuickPickItem {
     readonly handler?: ArtifactHandler;

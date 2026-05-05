@@ -16,10 +16,12 @@ interface StaticCandidateData {
     readonly site: SiteDetection;
 }
 
+type OpenTarget = "simple-browser" | "external";
+
 export const staticSiteHandler: ArtifactHandler = {
     async detect(ctx: HandlerContext): Promise<HandlerCandidate | null> {
         const site = await detectStaticSite(ctx.extracted);
-        if (!site || site.isAstro) {
+        if (!site) {
             return null;
         }
         const siteLabel =
@@ -28,12 +30,12 @@ export const staticSiteHandler: ArtifactHandler = {
                 : `${path.posix.dirname(site.indexRelPath)}/`;
         return {
             id: "static-site",
-            icon: "$(server-environment)",
-            label: "Preview static site",
+            icon: "$(browser)",
+            label: "Preview HTML site",
             description: `site root: ${siteLabel} · ${site.fileCount} ${
                 site.fileCount === 1 ? "file" : "files"
             }`,
-            detail: `Plain HTML/CSS/JS · served via built-in HTTP server`,
+            detail: `Serve via built-in HTTP server, then open in your chosen browser`,
             priority: 30,
             data: { site } satisfies StaticCandidateData,
         };
@@ -41,15 +43,42 @@ export const staticSiteHandler: ArtifactHandler = {
 
     async open(ctx: HandlerContext, candidate: HandlerCandidate): Promise<void> {
         const data = candidate.data as StaticCandidateData;
-        await launchStaticPreview(ctx, data.site);
+        const target = await pickOpenTarget();
+        if (!target) {
+            return;
+        }
+        await launchStaticPreview(ctx, data.site, target);
     },
 };
+
+async function pickOpenTarget(): Promise<OpenTarget | undefined> {
+    const choice = await vscode.window.showQuickPick(
+        [
+            {
+                label: "$(window)  Open in VS Code (Simple Browser)",
+                description: "Preview side-by-side without leaving the editor",
+                value: "simple-browser" as const,
+            },
+            {
+                label: "$(link-external)  Open in default browser",
+                description: "Launch your OS's default web browser",
+                value: "external" as const,
+            },
+        ],
+        {
+            title: "Where would you like to open this site?",
+            placeHolder: "Pick a browser",
+            ignoreFocusOut: true,
+        }
+    );
+    return choice?.value;
+}
 
 export async function launchStaticPreview(
     ctx: HandlerContext,
     site: SiteDetection,
-    options: { headerNote?: string } = {}
-): Promise<void>{
+    target: OpenTarget
+): Promise<void> {
     const writeEmitter = new vscode.EventEmitter<string>();
     const closeEmitter = new vscode.EventEmitter<number | void>();
     let server: StaticServerHandle | undefined;
@@ -59,9 +88,6 @@ export async function launchStaticPreview(
         onDidWrite: writeEmitter.event,
         onDidClose: closeEmitter.event,
         open: async () => {
-            if (options.headerNote) {
-                writeEmitter.fire(ansi.yellow(options.headerNote) + "\r\n");
-            }
             writeEmitter.fire(
                 ansi.cyan("▶ Static site preview\r\n") +
                     ansi.dim(`  root: ${site.siteRoot}\r\n\r\n`)
@@ -83,12 +109,19 @@ export async function launchStaticPreview(
                 return;
             }
             writeEmitter.fire(
-                ansi.green(`Listening on ${server.url}\r\n\r\n`)
+                ansi.green(`Listening on ${server.url}\r\n`) +
+                    ansi.dim(
+                        `  (close this terminal to stop the server)\r\n\r\n`
+                    )
             );
-            void vscode.commands.executeCommand(
-                "simpleBrowser.show",
-                server.url
-            );
+            if (target === "simple-browser") {
+                void vscode.commands.executeCommand(
+                    "simpleBrowser.show",
+                    server.url
+                );
+            } else {
+                void vscode.env.openExternal(vscode.Uri.parse(server.url));
+            }
         },
         close: () => {
             void server?.dispose();

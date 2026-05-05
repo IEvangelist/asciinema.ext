@@ -2,6 +2,24 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.4.0] - 2026-05-04
+
+### Removed — Astro CLI integration & framework-specific previews
+
+- **Removed Astro detection, the `astro preview` Pseudoterminal, and the `npm install -g astro` prompt.** The Astro path was a lot of moving parts (CLI sniffing, install offer, child-process orchestration, fallback flow) for a small slice of artifacts. The built-in Node HTTP server already serves any static build correctly, so we lean on that instead.
+- **Removed `astro-site-handler.ts`, `detectStaticSite.isAstro` / `astroMarkers`, and their tests.**
+- **Keywords cleaned up:** dropped `astro`, `static-site`; added `html`.
+
+### Changed — HTML preview UX
+
+- **You pick the browser.** When an artifact contains an `index.html`, the extension now asks where to open it: **Open in VS Code (Simple Browser)** or **Open in default browser**. Both options spin up the same loopback static server (port 0, mime-mapped, symlink-safe, traversal-guarded); only the destination differs.
+- **Friendlier handler label & icon.** "Preview static site" → "Preview HTML site", `$(server-environment)` → `$(browser)`.
+- **Marketplace description** updated to match.
+
+### Migration
+
+- If you relied on `astro preview`'s dev-mode behavior (e.g. SSR fallbacks, `astro.config.mjs`-driven routing), run `astro build` in CI so the artifact contains the static `dist/` output, then this extension will serve it. We no longer execute the Astro CLI.
+
 ## [0.3.4] - 2026-04-29
 
 ### Security — defense-in-depth
