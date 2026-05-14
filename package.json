@@ -224,6 +224,18 @@
         "title": "Open Artifacts from CI Run",
         "category": "GitHub",
         "icon": "$(github-action)"
+      },
+      {
+        "command": "asciinema.clearCache",
+        "title": "Clear extension cache",
+        "category": "Asciinema",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "asciinema.stopHtmlPreview",
+        "title": "Stop HTML preview",
+        "category": "Asciinema",
+        "icon": "$(debug-stop)"
       }
     ],
     "menus": {

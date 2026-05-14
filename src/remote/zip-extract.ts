@@ -60,6 +60,13 @@ export interface ExtractZipOptions {
      * (e.g. the user just raised a cap after a `ZipLimitError`).
      */
     readonly resume?: boolean;
+    /**
+     * Optional cancellation token. Checked between entries; when aborted,
+     * the loop throws an `AbortError`-style exception (`err.name === "AbortError"`)
+     * and leaves whatever was already written on disk — combine with
+     * `resume: true` to pick up where the user cancelled.
+     */
+    readonly signal?: AbortSignal;
 }
 
 export async function extractZipToDir(
@@ -74,7 +81,8 @@ export async function extractZipToDir(
     const opts: ExtractZipOptions =
         "limits" in limitsOrOptions ||
         "onProgress" in limitsOrOptions ||
-        "resume" in limitsOrOptions
+        "resume" in limitsOrOptions ||
+        "signal" in limitsOrOptions
             ? (limitsOrOptions as ExtractZipOptions)
             : {
                   limits: limitsOrOptions as DiskExtractionLimits,
@@ -83,6 +91,7 @@ export async function extractZipToDir(
     const limits = opts.limits ?? DEFAULT_DISK_LIMITS;
     const progress = opts.onProgress ?? onProgress;
     const resume = opts.resume === true;
+    const signal = opts.signal;
 
     const zip = await JSZip.loadAsync(zipBytes);
     const allFiles = Object.values(zip.files).filter((f) => !f.dir);
@@ -104,6 +113,9 @@ export async function extractZipToDir(
     let runningTotal = 0;
 
     for (const file of allFiles) {
+        if (signal?.aborted) {
+            throw createAbortError();
+        }
         const rawName = file.name;
 
         // Symlink rejection (Unix mode bits 0o120000 == symlink).
@@ -221,6 +233,25 @@ async function statSize(uri: vscode.Uri): Promise<number | undefined> {
         // missing — not present
     }
     return undefined;
+}
+
+function createAbortError(): Error {
+    const err = new Error("Extraction cancelled.");
+    err.name = "AbortError";
+    return err;
+}
+
+/**
+ * Returns true when `err` is an abort/cancellation signal (either a
+ * standard `AbortError` from `AbortSignal`, or the synthetic one thrown
+ * by `extractZipToDir` when its `signal` aborts).
+ */
+export function isAbortError(err: unknown): boolean {
+    if (!err || typeof err !== "object") {
+        return false;
+    }
+    const name = (err as { name?: unknown }).name;
+    return name === "AbortError";
 }
 
 /**

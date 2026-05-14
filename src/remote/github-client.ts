@@ -323,8 +323,12 @@ export async function downloadArtifactZip(
     repo: RepoCoordinates,
     artifactId: number,
     maxBytes: number,
-    onProgress?: (p: DownloadProgress) => void
+    onProgress?: (p: DownloadProgress) => void,
+    signal?: AbortSignal
 ): Promise<Uint8Array> {
+    if (signal?.aborted) {
+        throw createDownloadAbortError();
+    }
     let response: Response;
     try {
         response = await fetch(
@@ -337,9 +341,13 @@ export async function downloadArtifactZip(
                     "User-Agent": "vscode-asciinema-extension",
                 },
                 redirect: "follow",
+                signal,
             }
         );
     } catch (err) {
+        if (isFetchAbortError(err)) {
+            throw createDownloadAbortError();
+        }
         throw new GitHubApiError(
             0,
             `Network error downloading artifact: ${(err as Error).message}`,
@@ -378,7 +386,15 @@ export async function downloadArtifactZip(
 
     if (!response.body) {
         // Fall back to bulk-read when body streaming isn't supported.
-        const buffer = await response.arrayBuffer();
+        let buffer: ArrayBuffer;
+        try {
+            buffer = await response.arrayBuffer();
+        } catch (err) {
+            if (isFetchAbortError(err)) {
+                throw createDownloadAbortError();
+            }
+            throw err;
+        }
         if (buffer.byteLength > maxBytes) {
             throw new GitHubApiError(
                 0,
@@ -400,7 +416,12 @@ export async function downloadArtifactZip(
     onProgress?.({ received: 0, total });
 
     while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await reader.read().catch((err) => {
+            if (isFetchAbortError(err)) {
+                throw createDownloadAbortError();
+            }
+            throw err;
+        });
         if (done) {
             break;
         }
@@ -432,4 +453,18 @@ export async function downloadArtifactZip(
         offset += chunk.byteLength;
     }
     return out;
+}
+
+function isFetchAbortError(err: unknown): boolean {
+    if (!err || typeof err !== "object") {
+        return false;
+    }
+    const name = (err as { name?: unknown }).name;
+    return name === "AbortError";
+}
+
+function createDownloadAbortError(): Error {
+    const err = new Error("Download cancelled.");
+    err.name = "AbortError";
+    return err;
 }

@@ -27,11 +27,29 @@ Run **`GitHub: Artifacts Explorer`** from the command palette, paste a PR URL *o
 
 | Artifact contains… | Opens with |
 |---|---|
-| `.cast` files | Asciinema player picker (with cast duration parsed from the header) |
-| Any shallowest `index.html` | Embedded Node HTTP server (port 0, traversal-guarded, mime-mapped) — pick **VS Code Simple Browser** or **default browser** |
-| Anything else | "Browse extracted files…" sub-picker (open in new window / add to workspace / show in OS file manager) |
+| `.cast` files | Asciinema player picker (with cast duration parsed from the header). Extracted to disk on-demand. |
+| Any shallowest `index.html` | **Streamed directly from the cached `.zip`** via an embedded Node HTTP server (port 0, traversal-guarded, mime-mapped). Pick **VS Code Simple Browser** or **default browser**. No disk extraction. |
+| Anything else | "Browse extracted files…" sub-picker (open in new window / add to workspace / show in OS file manager). Extracted to disk on-demand. |
 
-**Recents that actually work.** Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan dirs are cleaned at activation time.
+**HTML previews stream straight from the zip.** Downloaded artifacts are
+parked as `globalStorageUri/remote-artifacts/{id}.zip`. Cast / Browse picks
+are extracted on demand; HTML previews skip extraction entirely and
+serve each request by inflating that one entry through JSZip. Result:
+opening an HTML preview is O(1) once the download finishes — no waiting
+on every entry to land on disk.
+
+**Cancellable downloads & extractions.** Both progress notifications
+expose a cancel control. Cancelling a download aborts the HTTP body
+read; cancelling an extraction leaves partial state behind so a future
+retry resumes from where you stopped (no re-decompression).
+
+**Stop HTML preview from anywhere.** While a preview server is running
+you get a right-side **`$(debug-stop) HTML preview`** status bar item —
+click it (or run **`Asciinema: Stop HTML preview`**, or press `Ctrl+C`
+inside the preview's terminal) to dispose the server cleanly. Multiple
+concurrent previews land in a "Stop all / pick one" picker.
+
+**Recents that actually work.** Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan zips and dirs are cleaned at activation time.
 
 **Live download & extract progress.** Real percentages (`12.4 MB of 87.0 MB (14%)`, `12,403 / 27,718 files · 184.2 MB (44%)`), ~10 updates/sec.
 
@@ -82,11 +100,20 @@ Works with public and private repos. Recents persist across VS Code restarts; th
 | Setting | Default | Description |
 |---|---|---|
 | `asciinema.maxArtifactSizeMB` | `250` | Maximum compressed artifact size that downloads without prompting. Larger artifacts still work — you just get a confirmation dialog. |
-| `asciinema.maxArtifactExtractedMB` | `2048` | Maximum total uncompressed size of artifact contents written to disk during extraction. |
-| `asciinema.maxArtifactEntryCount` | `250000` | Maximum number of files allowed inside an artifact zip. |
-| `asciinema.maxArtifactEntrySizeMB` | `500` | Maximum uncompressed size of any single file inside an artifact zip. |
+| `asciinema.maxArtifactExtractedMB` | `2048` | Maximum total uncompressed size when **extracting** an artifact to disk (cast / browse). Doesn't apply to the HTML preview path — that streams from the cached zip and never extracts. |
+| `asciinema.maxArtifactEntryCount` | `250000` | Maximum number of files allowed inside an artifact zip. Checked at download time against the zip's central directory. |
+| `asciinema.maxArtifactEntrySizeMB` | `500` | Maximum uncompressed size of any single file inside an artifact zip. Applied both at extraction time and per request on the HTML preview path. |
 
 If extraction trips a cap, you'll get a notification with **Raise & Retry / Custom value / Open Settings** — never a dead-end. Retries resume from where they left off.
+
+### Commands
+
+| Command | Description |
+|---|---|
+| `GitHub: Artifacts Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. |
+| `GitHub: Open Artifacts from CI Run` | Skip the PR step entirely; paste a workflow-run URL. |
+| `Asciinema: Stop HTML preview` | Stop one or all running HTML preview servers (also reachable via the status bar item, or `Ctrl+C` inside the preview's terminal). |
+| `Asciinema: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
 
 ### Asciinema player options (global defaults)
 

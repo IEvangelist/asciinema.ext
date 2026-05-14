@@ -304,12 +304,32 @@ async function openRecent(
     context: vscode.ExtensionContext,
     entry: RecentArtifact
 ): Promise<void> {
+    let bundle;
+    if (entry.kind === "zip") {
+        bundle = entry.bundle;
+    } else {
+        // Legacy "extracted" recent — synthesize a minimal bundle so the
+        // dispatcher's bundle-based detection still works. We point
+        // `zipPath` at the (non-existent) cached zip URI; the dispatcher
+        // never reads it because handlers operate against the existing
+        // `ctx.extracted`.
+        bundle = {
+            zipPath: vscode.Uri.joinPath(
+                context.globalStorageUri,
+                "remote-artifacts",
+                `${entry.artifact.id}.zip`
+            ),
+            files: entry.extracted.files,
+            zipSizeBytes: 0,
+        };
+    }
     const handlerCtx: HandlerContext = {
         extensionContext: context,
         coords: repoOf(entry.source),
         run: entry.run,
         artifact: entry.artifact,
-        extracted: entry.extracted,
+        bundle,
+        extracted: entry.kind === "extracted" ? entry.extracted : undefined,
     };
     await dispatchHandler(handlerCtx);
 }

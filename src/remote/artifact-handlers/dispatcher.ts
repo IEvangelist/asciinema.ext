@@ -7,8 +7,22 @@ import type {
 import { castHandler } from "./cast-handler.js";
 import { staticSiteHandler } from "./static-site-handler.js";
 import { showQuickPick } from "./quickpick.js";
+import {
+    deleteArtifactZip,
+    extractArtifactToDisk,
+    getArtifactExtractedDir,
+} from "../temp-storage.js";
+import { isAbortError, type DiskExtractionLimits } from "../zip-extract.js";
+import { ZipLimitError } from "../artifact-zip.js";
+import { buildProgressMessage } from "../progress-format.js";
+import { getExtractionQuip } from "../download-quips.js";
+import * as fs from "node:fs/promises";
 
 const HANDLERS: readonly ArtifactHandler[] = [castHandler, staticSiteHandler];
+
+const DEFAULT_MAX_EXTRACTED_MB = 2048;
+const DEFAULT_MAX_ENTRY_COUNT = 250_000;
+const DEFAULT_MAX_ENTRY_SIZE_MB = 500;
 
 interface DispatchItem extends vscode.QuickPickItem {
     readonly handler?: ArtifactHandler;
@@ -19,8 +33,14 @@ interface DispatchItem extends vscode.QuickPickItem {
 /**
  * Detects every applicable handler for `ctx`, prompts the user to pick one
  * (skipping the prompt when there's exactly one specialized match), and
- * runs it. If nothing matches, reveals the extracted artifact directory in
- * the Explorer view.
+ * runs it.
+ *
+ * The detection step runs against `ctx.bundle.files` (a posix entry
+ * listing, no disk extraction required). When the chosen handler needs the
+ * files unpacked (cast / Browse fallback), the dispatcher extracts on
+ * demand here, then deletes the cached `.zip` so we don't double-pay
+ * cache. Static-site handler reads straight from the zip and never
+ * triggers an extraction.
  */
 export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
     const matches: Array<{
@@ -36,12 +56,23 @@ export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
     matches.sort((a, b) => a.candidate.priority - b.candidate.priority);
 
     if (matches.length === 0) {
+        await ensureExtracted(ctx);
+        if (!ctx.extracted) {
+            return;
+        }
         await revealExtractedInExplorer(ctx);
         return;
     }
 
     if (matches.length === 1) {
-        await matches[0].handler.open(ctx, matches[0].candidate);
+        const m = matches[0];
+        if (handlerNeedsExtracted(m.handler)) {
+            await ensureExtracted(ctx);
+            if (!ctx.extracted) {
+                return;
+            }
+        }
+        await m.handler.open(ctx, m.candidate);
         return;
     }
 
@@ -67,8 +98,14 @@ export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
         },
         {
             label: "$(folder-opened)  Browse extracted files…",
-            description: "Open in a new window, add to workspace, or show in the OS file manager",
-            detail: ctx.extracted.rootDir.fsPath,
+            description:
+                "Open in a new window, add to workspace, or show in the OS file manager",
+            detail:
+                ctx.extracted?.rootDir.fsPath ??
+                getArtifactExtractedDir(
+                    ctx.extensionContext,
+                    ctx.artifact.id
+                ).fsPath,
             fallback: "reveal",
         }
     );
@@ -81,16 +118,328 @@ export async function dispatchHandler(ctx: HandlerContext): Promise<void> {
         return;
     }
     if (picked.fallback === "reveal") {
+        await ensureExtracted(ctx);
+        if (!ctx.extracted) {
+            return;
+        }
         await revealExtractedInExplorer(ctx);
         return;
     }
     if (picked.handler && picked.candidate) {
+        if (handlerNeedsExtracted(picked.handler)) {
+            await ensureExtracted(ctx);
+            if (!ctx.extracted) {
+                return;
+            }
+        }
         await picked.handler.open(ctx, picked.candidate);
     }
 }
 
+function handlerNeedsExtracted(handler: ArtifactHandler): boolean {
+    // The static-site handler can serve directly from the cached zip; every
+    // other current handler needs the inflated tree on disk.
+    return handler !== staticSiteHandler;
+}
+
+/**
+ * Inflates `ctx.bundle.zipPath` into the artifact's extraction directory
+ * and assigns the result to `ctx.extracted`. No-op when `ctx.extracted` is
+ * already set (re-opened v2 recent or earlier dispatcher decision). After
+ * a successful extract the cached `.zip` is removed — at that point the
+ * extracted tree is the source of truth.
+ *
+ * Surfaces full Raise-&-Retry recovery for `ZipLimitError`. Silently
+ * unwinds on cancellation (`AbortError`).
+ */
+async function ensureExtracted(ctx: HandlerContext): Promise<void> {
+    if (ctx.extracted) {
+        return;
+    }
+    const zipPath = ctx.bundle.zipPath.fsPath;
+    let zipBytes: Uint8Array;
+    try {
+        const buf = await fs.readFile(zipPath);
+        zipBytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    } catch (err) {
+        await vscode.window.showErrorMessage(
+            `Couldn't read cached artifact zip: ${(err as Error).message}`
+        );
+        return;
+    }
+
+    let currentLimits = getDiskExtractionLimits();
+    let attempt = 0;
+    for (;;) {
+        try {
+            const extracted = await runExtractWithProgress(
+                ctx,
+                zipBytes,
+                currentLimits,
+                attempt > 0
+            );
+            if (!extracted) {
+                return;
+            }
+            ctx.extracted = extracted;
+            // Now that the extracted tree is the source of truth, drop the
+            // cached `.zip` so we don't pay double disk for this artifact.
+            await deleteArtifactZip(ctx.extensionContext, ctx.artifact.id);
+            return;
+        } catch (err) {
+            if (isAbortError(err)) {
+                // User cancelled — leave any partial state behind for a
+                // future `resume: true` retry. No popup needed.
+                return;
+            }
+            if (err instanceof ZipLimitError) {
+                const next = await handleZipLimitError(err, currentLimits);
+                if (next === undefined) {
+                    return;
+                }
+                currentLimits = next;
+                attempt++;
+                continue;
+            }
+            await vscode.window.showErrorMessage(
+                `Couldn't extract artifact zip: ${(err as Error).message}`
+            );
+            return;
+        }
+    }
+}
+
+async function runExtractWithProgress(
+    ctx: HandlerContext,
+    zipBytes: Uint8Array,
+    limits: DiskExtractionLimits,
+    resume: boolean
+): Promise<Awaited<ReturnType<typeof extractArtifactToDisk>> | undefined> {
+    return await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: resume
+                ? `Asciinema — Resuming extraction "${ctx.artifact.name}"`
+                : `Asciinema — Extracting artifact "${ctx.artifact.name}"`,
+            cancellable: true,
+        },
+        async (progress, token) => {
+            const controller = new AbortController();
+            const sub = token.onCancellationRequested(() => {
+                controller.abort();
+            });
+            let lastPct = 0;
+            let lastReport = 0;
+            const startedAt = Date.now();
+            try {
+                return await extractArtifactToDisk(
+                    ctx.extensionContext,
+                    ctx.artifact.id,
+                    zipBytes,
+                    limits,
+                    (p) => {
+                        const now = Date.now();
+                        if (
+                            now - lastReport < 100 &&
+                            p.filesWritten < p.totalFiles
+                        ) {
+                            return;
+                        }
+                        lastReport = now;
+                        const pct =
+                            p.totalFiles > 0
+                                ? Math.min(
+                                      100,
+                                      Math.floor(
+                                          (p.filesWritten / p.totalFiles) * 100
+                                      )
+                                  )
+                                : 0;
+                        const increment = pct - lastPct;
+                        lastPct = pct;
+                        const elapsedMs = now - startedAt;
+                        const message = buildProgressMessage({
+                            received: p.bytesWritten,
+                            elapsedMs,
+                            files: {
+                                written: p.filesWritten,
+                                total: p.totalFiles,
+                            },
+                            quip: getExtractionQuip(elapsedMs),
+                        });
+                        progress.report({ message, increment });
+                    },
+                    resume,
+                    controller.signal
+                );
+            } finally {
+                sub.dispose();
+            }
+        }
+    );
+}
+
+interface ZipLimitMeta {
+    readonly unit: string;
+    readonly settingKey: string;
+    readonly settingLabel: string;
+    readonly toUnits: (raw: number) => number;
+    readonly fromUnits: (units: number) => number;
+    readonly applyToLimits: (
+        current: DiskExtractionLimits,
+        rawValue: number
+    ) => DiskExtractionLimits;
+}
+
+const ZIP_LIMIT_META: Record<string, ZipLimitMeta | undefined> = {
+    entries: {
+        unit: "files",
+        settingKey: "maxArtifactEntryCount",
+        settingLabel: "Max artifact entry count",
+        toUnits: (n) => n,
+        fromUnits: (n) => Math.floor(n),
+        applyToLimits: (cur, val) => ({ ...cur, maxEntries: val }),
+    },
+    entrySize: {
+        unit: "MB",
+        settingKey: "maxArtifactEntrySizeMB",
+        settingLabel: "Max single-file size (MB)",
+        toUnits: (b) => Math.ceil(b / 1024 / 1024),
+        fromUnits: (mb) => Math.round(mb * 1024 * 1024),
+        applyToLimits: (cur, val) => ({ ...cur, maxEntryBytes: val }),
+    },
+    totalSize: {
+        unit: "MB",
+        settingKey: "maxArtifactExtractedMB",
+        settingLabel: "Max total extracted size (MB)",
+        toUnits: (b) => Math.ceil(b / 1024 / 1024),
+        fromUnits: (mb) => Math.round(mb * 1024 * 1024),
+        applyToLimits: (cur, val) => ({ ...cur, maxTotalBytes: val }),
+    },
+};
+
+async function handleZipLimitError(
+    err: ZipLimitError,
+    current: DiskExtractionLimits
+): Promise<DiskExtractionLimits | undefined> {
+    const meta = ZIP_LIMIT_META[err.kind];
+    if (!meta) {
+        await vscode.window.showErrorMessage(err.message);
+        return undefined;
+    }
+
+    const capRaw = err.cap ?? 0;
+    const observedRaw = err.observed ?? capRaw;
+    const suggestedRaw = Math.max(
+        capRaw * 2,
+        Math.ceil(observedRaw * 1.25),
+        capRaw + 1
+    );
+    const currentDisp = meta.toUnits(capRaw);
+    const suggestedDisp = meta.toUnits(suggestedRaw);
+    const observedDisp = meta.toUnits(observedRaw);
+
+    const increaseAndRetry = `Raise to ${suggestedDisp.toLocaleString()} ${meta.unit} & Retry`;
+    const customRetry = `Set custom value…`;
+    const openSettings = "Open Settings";
+    const cancel = "Cancel";
+
+    const choice = await vscode.window.showErrorMessage(
+        `${err.message}\n\nObserved ${observedDisp.toLocaleString()} ${meta.unit}; current cap ${currentDisp.toLocaleString()} ${meta.unit} (\`asciinema.${meta.settingKey}\`).`,
+        { modal: false },
+        increaseAndRetry,
+        customRetry,
+        openSettings,
+        cancel
+    );
+
+    if (!choice || choice === cancel) {
+        return undefined;
+    }
+
+    if (choice === openSettings) {
+        await vscode.commands.executeCommand(
+            "workbench.action.openSettings",
+            `@id:asciinema.${meta.settingKey}`
+        );
+        return undefined;
+    }
+
+    let newRaw = suggestedRaw;
+    if (choice === customRetry) {
+        const input = await vscode.window.showInputBox({
+            title: `Asciinema — ${meta.settingLabel}`,
+            prompt: `Enter a new cap in ${meta.unit}. Current: ${currentDisp.toLocaleString()}. Observed: ${observedDisp.toLocaleString()}.`,
+            value: String(suggestedDisp),
+            validateInput: (v) => {
+                const n = Number(v);
+                if (!Number.isFinite(n) || n <= 0) {
+                    return "Enter a positive number.";
+                }
+                if (meta.fromUnits(n) <= observedRaw) {
+                    return `Must be greater than ${observedDisp.toLocaleString()} ${meta.unit} to fit this artifact.`;
+                }
+                return undefined;
+            },
+        });
+        if (!input) {
+            return undefined;
+        }
+        newRaw = meta.fromUnits(Number(input));
+    }
+
+    try {
+        const cfg = vscode.workspace.getConfiguration("asciinema");
+        await cfg.update(
+            meta.settingKey,
+            meta.toUnits(newRaw),
+            vscode.ConfigurationTarget.Global
+        );
+    } catch {
+        // best-effort
+    }
+
+    return meta.applyToLimits(current, newRaw);
+}
+
+function getDiskExtractionLimits(): DiskExtractionLimits {
+    const cfg = vscode.workspace.getConfiguration("asciinema");
+    const totalMb = cfg.get<number>(
+        "maxArtifactExtractedMB",
+        DEFAULT_MAX_EXTRACTED_MB
+    );
+    const entryCount = cfg.get<number>(
+        "maxArtifactEntryCount",
+        DEFAULT_MAX_ENTRY_COUNT
+    );
+    const entryMb = cfg.get<number>(
+        "maxArtifactEntrySizeMB",
+        DEFAULT_MAX_ENTRY_SIZE_MB
+    );
+    const safeTotal =
+        Number.isFinite(totalMb) && totalMb > 0
+            ? totalMb
+            : DEFAULT_MAX_EXTRACTED_MB;
+    const safeCount =
+        Number.isFinite(entryCount) && entryCount > 0
+            ? Math.floor(entryCount)
+            : DEFAULT_MAX_ENTRY_COUNT;
+    const safeEntry =
+        Number.isFinite(entryMb) && entryMb > 0
+            ? entryMb
+            : DEFAULT_MAX_ENTRY_SIZE_MB;
+    return {
+        maxEntries: safeCount,
+        maxEntryBytes: Math.round(safeEntry * 1024 * 1024),
+        maxTotalBytes: Math.round(safeTotal * 1024 * 1024),
+    };
+}
+
 async function revealExtractedInExplorer(ctx: HandlerContext): Promise<void> {
-    const dir = ctx.extracted.rootDir;
+    const dir = ctx.extracted?.rootDir;
+    if (!dir) {
+        return;
+    }
     const inNewWindow = "$(empty-window)  Open folder in new VS Code window";
     const addToWorkspace = "$(multiple-windows)  Add folder to current workspace";
     const showInOs = `$(file-directory)  Show in ${osFileManagerName()}`;

@@ -2,6 +2,28 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [Unreleased]
+
+### Added — Zip-backed HTML previews ⚡
+
+- **HTML previews now stream directly from the cached `.zip`.** Downloaded artifacts are parked as `globalStorageUri/remote-artifacts/{id}.zip`; the static-site preview boots a new `startZipStaticServer` that parses the zip's central directory via JSZip (no decompression), then inflates one entry per HTTP request. Result: opening an HTML preview is O(1) after the download finishes — no waiting for thousands of small chunks to hit disk, no inflated cache footprint. Cast and "Browse extracted files…" still extract to disk on demand (and the dispatcher deletes the cached zip after a successful extract).
+- **Cancellable downloads & extractions.** Both `withProgress` notifications now expose a cancel control. Download cancellation aborts the HTTP body read via `AbortSignal`; extraction cancellation leaves partial state behind so a future retry resumes from where you stopped.
+- **New command: `Asciinema: Clear extension cache`** — a QuickPick with live sizes, item counts, and date ranges: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation; success toast reports bytes cleared.
+- **New command: `Asciinema: Stop HTML preview`** — stop one or all running preview servers. Also reachable via the new right-side `$(debug-stop) HTML preview` status bar item, or by pressing `Ctrl+C` inside the preview's own terminal.
+
+### Changed
+
+- **Recents schema v3 (discriminated).** Each entry now records its backing-storage kind: `"zip"` (cached zip, no extraction) or `"extracted"` (legacy disk tree). v1/v2 entries deserialize into the `"extracted"` variant transparently and re-persist as v3 on the next write. Orphan-cache cleanup sweeps `*.zip` files alongside legacy directories.
+- **Dispatcher branches after the user picks.** Detection runs against the zip listing alone (no I/O), so artifacts that mix `.cast` and HTML still show every candidate in the same picker — extraction only happens once the user commits to a non-HTML handler.
+- **`maxArtifactExtractedMB` clarified.** Only applies on the disk-extraction path (cast / browse); the HTML preview path never extracts so the setting is irrelevant there.
+
+### Internal
+
+- New modules: `artifact-bundle.ts` (peek-only JSZip listing), `zip-static-server.ts` (per-request inflate), `preview-registry.ts` (single source of truth for running previews), `cache-actions.ts` / `cache-format.ts`, `clear-cache-command.ts`, `stop-preview-command.ts`.
+- `extractZipToDir` now accepts an `AbortSignal`. `downloadArtifactZip` likewise; `fetch` is invoked with `{ signal }` so aborts propagate to the HTTP layer.
+- `detectStaticSite` refactored to a pure path-only function (`{ files: string[] } → SiteDetection | undefined`) so it can run against the zip listing without touching the filesystem.
+- Bundle-and-extracted dual cache means a single PR can flip from one storage variant to the other (zip → extracted) without dropping the recent.
+
 ## [0.5.0] - 2026-05-05
 
 ### Added — Open artifacts from any CI run 🏃

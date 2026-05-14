@@ -6,8 +6,8 @@ import {
     type WorkflowRunSummary,
 } from "./github-client.js";
 import { ZipLimitError } from "./artifact-zip.js";
-import { extractArtifactToDisk } from "./temp-storage.js";
-import type { DiskExtractionLimits } from "./zip-extract.js";
+import { saveArtifactZip } from "./temp-storage.js";
+import { isAbortError } from "./zip-extract.js";
 import { dispatchHandler } from "./artifact-handlers/dispatcher.js";
 import type { HandlerContext } from "./artifact-handlers/handler-types.js";
 import {
@@ -16,7 +16,7 @@ import {
     formatRelativeTime,
 } from "./quickpick-helpers.js";
 import { showQuickPick } from "./artifact-handlers/quickpick.js";
-import { getDownloadQuip, getExtractionQuip } from "./download-quips.js";
+import { getDownloadQuip } from "./download-quips.js";
 import { buildProgressMessage } from "./progress-format.js";
 import { recordRecent } from "./recent-artifacts.js";
 import {
@@ -25,9 +25,7 @@ import {
 } from "./artifact-source.js";
 
 const DEFAULT_MAX_ARTIFACT_MB = 250;
-const DEFAULT_MAX_EXTRACTED_MB = 2048;
 const DEFAULT_MAX_ENTRY_COUNT = 250_000;
-const DEFAULT_MAX_ENTRY_SIZE_MB = 500;
 const HARD_LIMIT_BYTES = 4 * 1024 * 1024 * 1024;
 
 function getConfiguredMaxArtifactBytes(): number {
@@ -38,37 +36,13 @@ function getConfiguredMaxArtifactBytes(): number {
     return Math.round(safe * 1024 * 1024);
 }
 
-function getDiskExtractionLimits(): DiskExtractionLimits {
-    const cfg = vscode.workspace.getConfiguration("asciinema");
-    const totalMb = cfg.get<number>(
-        "maxArtifactExtractedMB",
-        DEFAULT_MAX_EXTRACTED_MB
-    );
-    const entryCount = cfg.get<number>(
-        "maxArtifactEntryCount",
-        DEFAULT_MAX_ENTRY_COUNT
-    );
-    const entryMb = cfg.get<number>(
-        "maxArtifactEntrySizeMB",
-        DEFAULT_MAX_ENTRY_SIZE_MB
-    );
-    const safeTotal =
-        Number.isFinite(totalMb) && totalMb > 0
-            ? totalMb
-            : DEFAULT_MAX_EXTRACTED_MB;
-    const safeCount =
-        Number.isFinite(entryCount) && entryCount > 0
-            ? Math.floor(entryCount)
-            : DEFAULT_MAX_ENTRY_COUNT;
-    const safeEntry =
-        Number.isFinite(entryMb) && entryMb > 0
-            ? entryMb
-            : DEFAULT_MAX_ENTRY_SIZE_MB;
-    return {
-        maxEntries: safeCount,
-        maxEntryBytes: Math.round(safeEntry * 1024 * 1024),
-        maxTotalBytes: Math.round(safeTotal * 1024 * 1024),
-    };
+function getMaxEntries(): number {
+    const n = vscode.workspace
+        .getConfiguration("asciinema")
+        .get<number>("maxArtifactEntryCount", DEFAULT_MAX_ENTRY_COUNT);
+    const safe =
+        Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_MAX_ENTRY_COUNT;
+    return safe;
 }
 
 export interface PickAndOpenOptions {
@@ -82,8 +56,10 @@ export interface PickAndOpenOptions {
 
 /**
  * The shared back-half of every command that resolves a (run, artifacts)
- * pair: prompt for which artifact to open, download with progress, extract
- * with progress, record in recents, dispatch to a handler.
+ * pair: prompt for which artifact to open, download with progress, peek
+ * the zip's central directory, record in recents, and dispatch to a
+ * handler. Extraction to disk (when needed) is performed lazily by the
+ * dispatcher *after* the user picks a non-HTML handler.
  */
 export async function pickAndOpenArtifact(
     context: vscode.ExtensionContext,
@@ -97,9 +73,6 @@ export async function pickAndOpenArtifact(
         createIfNone: false,
     }))?.accessToken;
     if (!token) {
-        // The caller is expected to acquire a session before invoking this
-        // helper — but if it's gone by this point (e.g. user revoked it
-        // mid-flow), bail with a clear error.
         await vscode.window.showErrorMessage(
             "GitHub sign-in is no longer available."
         );
@@ -127,86 +100,96 @@ export async function pickAndOpenArtifact(
         );
     }
 
-    let zipBytes: Uint8Array;
+    let zipBytes: Uint8Array | undefined;
     try {
         zipBytes = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: `Asciinema — Downloading artifact "${chosenArtifact.name}"`,
-                cancellable: false,
+                cancellable: true,
             },
-            (progress) => {
+            async (progress, token2) => {
+                const controller = new AbortController();
+                const sub = token2.onCancellationRequested(() => {
+                    controller.abort();
+                });
                 let lastPct = 0;
                 let lastReport = 0;
                 const startedAt = Date.now();
-                return downloadArtifactZip(
-                    token,
-                    repo,
-                    chosenArtifact.id,
-                    effectiveMaxBytes,
-                    (p) => {
-                        const now = Date.now();
-                        if (
-                            now - lastReport < 100 &&
-                            p.received < (p.total ?? 0)
-                        ) {
-                            return;
-                        }
-                        lastReport = now;
-                        const elapsedMs = now - startedAt;
-                        let increment = 0;
-                        if (p.total && p.total > 0) {
-                            const pct = Math.min(
-                                100,
-                                Math.floor((p.received / p.total) * 100)
-                            );
-                            increment = pct - lastPct;
-                            lastPct = pct;
-                        }
-                        const message = buildProgressMessage({
-                            received: p.received,
-                            total: p.total,
-                            elapsedMs,
-                            quip: getDownloadQuip(elapsedMs),
-                        });
-                        progress.report({ message, increment });
-                    }
-                );
+                try {
+                    return await downloadArtifactZip(
+                        token,
+                        repo,
+                        chosenArtifact.id,
+                        effectiveMaxBytes,
+                        (p) => {
+                            const now = Date.now();
+                            if (
+                                now - lastReport < 100 &&
+                                p.received < (p.total ?? 0)
+                            ) {
+                                return;
+                            }
+                            lastReport = now;
+                            const elapsedMs = now - startedAt;
+                            let increment = 0;
+                            if (p.total && p.total > 0) {
+                                const pct = Math.min(
+                                    100,
+                                    Math.floor((p.received / p.total) * 100)
+                                );
+                                increment = pct - lastPct;
+                                lastPct = pct;
+                            }
+                            const message = buildProgressMessage({
+                                received: p.received,
+                                total: p.total,
+                                elapsedMs,
+                                quip: getDownloadQuip(elapsedMs),
+                            });
+                            progress.report({ message, increment });
+                        },
+                        controller.signal
+                    );
+                } finally {
+                    sub.dispose();
+                }
             }
         );
     } catch (err) {
+        if (isAbortError(err)) {
+            // User cancelled — keep silent.
+            return;
+        }
         await reportApiError(err, options);
         return;
     }
+    if (!zipBytes) {
+        return;
+    }
 
-    const limits = getDiskExtractionLimits();
-    let extracted: Awaited<ReturnType<typeof extractArtifactToDisk>> | undefined;
-    let currentLimits = limits;
-    let attempt = 0;
-    while (!extracted) {
-        try {
-            extracted = await runExtractWithProgress(
-                context,
-                chosenArtifact,
-                zipBytes,
-                currentLimits,
-                attempt > 0
-            );
-        } catch (err) {
-            if (err instanceof ZipLimitError) {
-                const next = await handleZipLimitError(err, currentLimits);
-                if (next === undefined) {
-                    return;
-                }
-                currentLimits = next;
-                attempt++;
-                continue;
-            }
-            await vscode.window.showErrorMessage(
-                `Couldn't extract artifact zip: ${(err as Error).message}`
-            );
+    let bundle: Awaited<ReturnType<typeof saveArtifactZip>>;
+    try {
+        bundle = await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Asciinema — Inspecting "${chosenArtifact.name}"`,
+                cancellable: false,
+            },
+            () =>
+                saveArtifactZip(context, chosenArtifact.id, zipBytes!, {
+                    maxEntries: getMaxEntries(),
+                })
+        );
+    } catch (err) {
+        if (err instanceof ZipLimitError) {
+            await vscode.window.showErrorMessage(err.message);
             return;
         }
+        await vscode.window.showErrorMessage(
+            `Couldn't open artifact zip: ${(err as Error).message}`
+        );
+        return;
     }
 
     const handlerCtx: HandlerContext = {
@@ -214,13 +197,13 @@ export async function pickAndOpenArtifact(
         coords: repo,
         run,
         artifact: chosenArtifact,
-        extracted,
+        bundle,
     };
-    recordRecent({
+    void recordRecent({
         source,
         run,
         artifact: chosenArtifact,
-        extracted,
+        bundle,
     }).catch(() => {
         // best-effort persistence
     });
@@ -246,191 +229,6 @@ async function confirmOversizeDownload(
 function formatMB(bytes: number): string {
     const mb = bytes / 1024 / 1024;
     return mb >= 10 ? mb.toFixed(0) : mb.toFixed(1);
-}
-
-async function runExtractWithProgress(
-    context: vscode.ExtensionContext,
-    chosenArtifact: WorkflowArtifact,
-    zipBytes: Uint8Array,
-    limits: DiskExtractionLimits,
-    resume = false
-): Promise<Awaited<ReturnType<typeof extractArtifactToDisk>>> {
-    return await vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: resume
-                ? `Asciinema — Resuming extraction "${chosenArtifact.name}"`
-                : `Asciinema — Extracting artifact "${chosenArtifact.name}"`,
-            cancellable: false,
-        },
-        (progress) => {
-            let lastPct = 0;
-            let lastReport = 0;
-            const startedAt = Date.now();
-            return extractArtifactToDisk(
-                context,
-                chosenArtifact.id,
-                zipBytes,
-                limits,
-                (p) => {
-                    const now = Date.now();
-                    if (
-                        now - lastReport < 100 &&
-                        p.filesWritten < p.totalFiles
-                    ) {
-                        return;
-                    }
-                    lastReport = now;
-                    const pct =
-                        p.totalFiles > 0
-                            ? Math.min(
-                                  100,
-                                  Math.floor(
-                                      (p.filesWritten / p.totalFiles) * 100
-                                  )
-                              )
-                            : 0;
-                    const increment = pct - lastPct;
-                    lastPct = pct;
-                    const elapsedMs = now - startedAt;
-                    const message = buildProgressMessage({
-                        received: p.bytesWritten,
-                        elapsedMs,
-                        files: {
-                            written: p.filesWritten,
-                            total: p.totalFiles,
-                        },
-                        quip: getExtractionQuip(elapsedMs),
-                    });
-                    progress.report({ message, increment });
-                },
-                resume
-            );
-        }
-    );
-}
-
-interface ZipLimitMeta {
-    readonly unit: string;
-    readonly settingKey: string;
-    readonly settingLabel: string;
-    readonly toUnits: (raw: number) => number;
-    readonly fromUnits: (units: number) => number;
-    readonly applyToLimits: (
-        current: DiskExtractionLimits,
-        rawValue: number
-    ) => DiskExtractionLimits;
-}
-
-const ZIP_LIMIT_META: Record<string, ZipLimitMeta | undefined> = {
-    entries: {
-        unit: "files",
-        settingKey: "maxArtifactEntryCount",
-        settingLabel: "Max artifact entry count",
-        toUnits: (n) => n,
-        fromUnits: (n) => Math.floor(n),
-        applyToLimits: (cur, val) => ({ ...cur, maxEntries: val }),
-    },
-    entrySize: {
-        unit: "MB",
-        settingKey: "maxArtifactEntrySizeMB",
-        settingLabel: "Max single-file size (MB)",
-        toUnits: (b) => Math.ceil(b / 1024 / 1024),
-        fromUnits: (mb) => Math.round(mb * 1024 * 1024),
-        applyToLimits: (cur, val) => ({ ...cur, maxEntryBytes: val }),
-    },
-    totalSize: {
-        unit: "MB",
-        settingKey: "maxArtifactExtractedMB",
-        settingLabel: "Max total extracted size (MB)",
-        toUnits: (b) => Math.ceil(b / 1024 / 1024),
-        fromUnits: (mb) => Math.round(mb * 1024 * 1024),
-        applyToLimits: (cur, val) => ({ ...cur, maxTotalBytes: val }),
-    },
-};
-
-async function handleZipLimitError(
-    err: ZipLimitError,
-    current: DiskExtractionLimits
-): Promise<DiskExtractionLimits | undefined> {
-    const meta = ZIP_LIMIT_META[err.kind];
-    if (!meta) {
-        await vscode.window.showErrorMessage(err.message);
-        return undefined;
-    }
-
-    const capRaw = err.cap ?? 0;
-    const observedRaw = err.observed ?? capRaw;
-    const suggestedRaw = Math.max(
-        capRaw * 2,
-        Math.ceil(observedRaw * 1.25),
-        capRaw + 1
-    );
-    const currentDisp = meta.toUnits(capRaw);
-    const suggestedDisp = meta.toUnits(suggestedRaw);
-    const observedDisp = meta.toUnits(observedRaw);
-
-    const increaseAndRetry = `Raise to ${suggestedDisp.toLocaleString()} ${meta.unit} & Retry`;
-    const customRetry = `Set custom value…`;
-    const openSettings = "Open Settings";
-    const cancel = "Cancel";
-
-    const choice = await vscode.window.showErrorMessage(
-        `${err.message}\n\nObserved ${observedDisp.toLocaleString()} ${meta.unit}; current cap ${currentDisp.toLocaleString()} ${meta.unit} (\`asciinema.${meta.settingKey}\`).`,
-        { modal: false },
-        increaseAndRetry,
-        customRetry,
-        openSettings,
-        cancel
-    );
-
-    if (!choice || choice === cancel) {
-        return undefined;
-    }
-
-    if (choice === openSettings) {
-        await vscode.commands.executeCommand(
-            "workbench.action.openSettings",
-            `@id:asciinema.${meta.settingKey}`
-        );
-        return undefined;
-    }
-
-    let newRaw = suggestedRaw;
-    if (choice === customRetry) {
-        const input = await vscode.window.showInputBox({
-            title: `Asciinema — ${meta.settingLabel}`,
-            prompt: `Enter a new cap in ${meta.unit}. Current: ${currentDisp.toLocaleString()}. Observed: ${observedDisp.toLocaleString()}.`,
-            value: String(suggestedDisp),
-            validateInput: (v) => {
-                const n = Number(v);
-                if (!Number.isFinite(n) || n <= 0) {
-                    return "Enter a positive number.";
-                }
-                if (meta.fromUnits(n) <= observedRaw) {
-                    return `Must be greater than ${observedDisp.toLocaleString()} ${meta.unit} to fit this artifact.`;
-                }
-                return undefined;
-            },
-        });
-        if (!input) {
-            return undefined;
-        }
-        newRaw = meta.fromUnits(Number(input));
-    }
-
-    try {
-        const cfg = vscode.workspace.getConfiguration("asciinema");
-        await cfg.update(
-            meta.settingKey,
-            meta.toUnits(newRaw),
-            vscode.ConfigurationTarget.Global
-        );
-    } catch {
-        // best-effort
-    }
-
-    return meta.applyToLimits(current, newRaw);
 }
 
 interface ArtifactQuickPickItem extends vscode.QuickPickItem {

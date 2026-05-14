@@ -14,70 +14,78 @@ import {
 } from "../quickpick-helpers.js";
 import { showQuickPick } from "./quickpick.js";
 
+interface CastEntry {
+    readonly relPath: string;
+}
+
+interface CastCandidateData {
+    readonly entries: CastEntry[];
+}
+
 interface CastInfo {
     readonly relPath: string;
     readonly absPath: string;
     bytes: number;
 }
 
-interface CastCandidateData {
-    readonly casts: CastInfo[];
-}
-
 export const castHandler: ArtifactHandler = {
-    async detect(ctx: HandlerContext): Promise<HandlerCandidate | null> {
-        const casts: CastInfo[] = [];
-        for (const rel of ctx.extracted.files) {
-            if (!/\.cast$/i.test(rel)) {
-                continue;
+    detect(ctx: HandlerContext): HandlerCandidate | null {
+        const entries: CastEntry[] = [];
+        for (const rel of ctx.bundle.files) {
+            if (/\.cast$/i.test(rel)) {
+                entries.push({ relPath: rel });
             }
-            const abs = path.join(ctx.extracted.rootDir.fsPath, rel);
-            let size = 0;
-            try {
-                const stat = await fs.stat(abs);
-                size = stat.size;
-            } catch {
-                // ignore
-            }
-            casts.push({ relPath: rel, absPath: abs, bytes: size });
         }
-        if (casts.length === 0) {
+        if (entries.length === 0) {
             return null;
         }
-        const totalBytes = casts.reduce((sum, c) => sum + c.bytes, 0);
-        const largest = casts.reduce(
-            (max, c) => (c.bytes > max.bytes ? c : max),
-            casts[0]
-        );
         const detailParts: string[] = ["Asciinema player"];
-        if (casts.length > 1) {
-            detailParts.push(
-                `largest: ${path.posix.basename(largest.relPath)} (${formatBytesShort(
-                    largest.bytes
-                )})`
-            );
+        if (entries.length > 1) {
+            detailParts.push(`first: ${path.posix.basename(entries[0].relPath)}`);
         } else {
-            detailParts.push(largest.relPath);
+            detailParts.push(entries[0].relPath);
         }
         return {
             id: "asciinema-cast",
             icon: "$(play-circle)",
             label:
-                casts.length === 1
+                entries.length === 1
                     ? "Open .cast recording"
                     : "Open .cast recordings",
-            description: `${casts.length} ${
-                casts.length === 1 ? "file" : "files"
-            }${totalBytes > 0 ? ` · ${formatBytesShort(totalBytes)} total` : ""}`,
+            description: `${entries.length} ${
+                entries.length === 1 ? "file" : "files"
+            }`,
             detail: detailParts.join(" · "),
             priority: 10,
-            data: { casts } satisfies CastCandidateData,
+            data: { entries } satisfies CastCandidateData,
         };
     },
 
     async open(ctx: HandlerContext, candidate: HandlerCandidate): Promise<void> {
+        const extracted = ctx.extracted;
+        if (!extracted) {
+            // Dispatcher guarantees extraction has happened before invoking
+            // open() for a cast candidate — this is a defensive guard.
+            throw new Error(
+                "Cast handler requires the artifact to be extracted to disk."
+            );
+        }
         const data = candidate.data as CastCandidateData;
-        const chosen = await pickCast(data.casts);
+        const casts: CastInfo[] = [];
+        for (const entry of data.entries) {
+            const abs = path.join(extracted.rootDir.fsPath, entry.relPath);
+            let size = 0;
+            try {
+                const stat = await fs.stat(abs);
+                size = stat.size;
+            } catch {
+                // ignore — entries that can't be stat'd still appear in the
+                // picker, just without size metadata.
+            }
+            casts.push({ relPath: entry.relPath, absPath: abs, bytes: size });
+        }
+
+        const chosen = await pickCast(casts);
         if (!chosen) {
             return;
         }
