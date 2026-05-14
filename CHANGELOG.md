@@ -2,7 +2,7 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
-## [Unreleased]
+## [0.6.0] - 2026-05-14
 
 ### Added — Zip-backed HTML previews ⚡
 
