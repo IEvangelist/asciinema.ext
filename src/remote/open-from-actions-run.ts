@@ -30,7 +30,7 @@ export async function openFromActionsRunCommand(
     let rawUrl = options.prefilledUrl;
     if (!rawUrl) {
         rawUrl = await vscode.window.showInputBox({
-            title: "GitHub — Open Artifacts from CI Run",
+            title: "GitHub Artifacts — Open from CI Run",
             prompt: "Paste a GitHub Actions workflow run URL",
             placeHolder:
                 "https://github.com/owner/repo/actions/runs/1234567890",

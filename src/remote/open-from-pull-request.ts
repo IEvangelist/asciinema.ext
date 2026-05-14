@@ -62,7 +62,7 @@ export async function openFromPullRequestCommand(
     let rawUrl = choice.prefilledUrl;
     if (!rawUrl) {
         rawUrl = await vscode.window.showInputBox({
-            title: "GitHub — Artifacts Explorer",
+            title: "GitHub Artifacts — Explorer",
             prompt: "Paste a GitHub pull request or Actions run URL",
             placeHolder:
                 "https://github.com/owner/repo/pull/123 — or /actions/runs/12345",
@@ -215,7 +215,7 @@ async function pickStartingPoint(
                 ? [REFRESH_BTN, CLEAR_ALL_BTN]
                 : [REFRESH_BTN];
         };
-        qp.title = "GitHub — Artifacts Explorer";
+        qp.title = "GitHub Artifacts — Explorer";
         qp.placeholder =
             recent.length > 0
                 ? `Pick a recent artifact, or paste a PR / run URL to download a new one… (${recent.length} cached)`

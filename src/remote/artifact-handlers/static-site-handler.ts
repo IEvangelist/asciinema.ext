@@ -194,7 +194,7 @@ export async function launchStaticPreview(
                 ansi.green(`Listening on ${url}\r\n`) +
                     ansi.dim(
                         `  Press Ctrl+C, close this terminal, or run\r\n` +
-                            `  "Asciinema: Stop HTML preview" to stop.\r\n\r\n`
+                            `  "GitHub Artifacts: Stop HTML preview" to stop.\r\n\r\n`
                     )
             );
             if (target === "simple-browser") {

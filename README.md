@@ -17,13 +17,13 @@
 code --install-extension davidpine-dev.asciinema
 ```
 
-…or search **Artifacts Explorer** / **Asciinema** in the Extensions view (`Ctrl+Shift+X`).
+…or search **GitHub Artifacts** / **Asciinema** in the Extensions view (`Ctrl+Shift+X`).
 
 ## What's inside
 
 ### 🚀 GitHub Artifacts Explorer
 
-Run **`GitHub: Artifacts Explorer`** from the command palette, paste a PR URL *or* an Actions run URL, and the extension downloads its workflow artifacts and dispatches each one to the right viewer based on content. Got a repo that doesn't use PRs? Run **`GitHub: Open Artifacts from CI Run`** and paste a `https://github.com/owner/repo/actions/runs/{id}` URL instead — same dispatch pipeline, no PR required.
+Run **`GitHub Artifacts: Explorer`** from the command palette, paste a PR URL *or* an Actions run URL, and the extension downloads its workflow artifacts and dispatches each one to the right viewer based on content. Got a repo that doesn't use PRs? Run **`GitHub Artifacts: Open from CI Run`** and paste a `https://github.com/owner/repo/actions/runs/{id}` URL instead — same dispatch pipeline, no PR required.
 
 | Artifact contains… | Opens with |
 |---|---|
@@ -45,7 +45,7 @@ retry resumes from where you stopped (no re-decompression).
 
 **Stop HTML preview from anywhere.** While a preview server is running
 you get a right-side **`$(debug-stop) HTML preview`** status bar item —
-click it (or run **`Asciinema: Stop HTML preview`**, or press `Ctrl+C`
+click it (or run **`GitHub Artifacts: Stop HTML preview`**, or press `Ctrl+C`
 inside the preview's terminal) to dispose the server cleanly. Multiple
 concurrent previews land in a "Stop all / pick one" picker.
 
@@ -76,7 +76,7 @@ Just open them. The asciinema player takes over the tab. Click the ⚙ Settings 
 
 ### From a GitHub pull request
 
-1. `Ctrl+Shift+P` → **`GitHub: Artifacts Explorer`**
+1. `Ctrl+Shift+P` → **`GitHub Artifacts: Explorer`**
 2. Pick a recent artifact, or paste a PR URL to download a new one (e.g., `https://github.com/owner/repo/pull/123`).
 3. Sign in with VS Code's built-in GitHub auth (one-time, `repo` scope).
 4. Let the extension dispatch on content type — it'll auto-pick the best way to open the artifact.
@@ -87,7 +87,7 @@ You can also paste an Actions run URL into the same prompt — it works the same
 
 For repos that don't use pull requests (or when you want to inspect a specific run regardless of PR):
 
-1. `Ctrl+Shift+P` → **`GitHub: Open Artifacts from CI Run`**
+1. `Ctrl+Shift+P` → **`GitHub Artifacts: Open from CI Run`**
 2. Paste a workflow-run URL (e.g., `https://github.com/owner/repo/actions/runs/12345678`).
 3. Same artifact picker, same dispatch. Recents are unified across both commands.
 
@@ -110,10 +110,11 @@ If extraction trips a cap, you'll get a notification with **Raise & Retry / Cust
 
 | Command | Description |
 |---|---|
-| `GitHub: Artifacts Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. |
-| `GitHub: Open Artifacts from CI Run` | Skip the PR step entirely; paste a workflow-run URL. |
-| `Asciinema: Stop HTML preview` | Stop one or all running HTML preview servers (also reachable via the status bar item, or `Ctrl+C` inside the preview's terminal). |
-| `Asciinema: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
+| `GitHub Artifacts: Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. |
+| `GitHub Artifacts: Open from CI Run` | Skip the PR step entirely; paste a workflow-run URL. |
+| `GitHub Artifacts: Stop HTML preview` | Stop one or all running HTML preview servers (also reachable via the status bar item, or `Ctrl+C` inside the preview's terminal). |
+| `GitHub Artifacts: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
+| `GitHub Artifacts: Open as Text` | Open the active `.cast` recording as raw NDJSON in a text editor (also exposed as a button in the editor title bar of the player). |
 
 ### Asciinema player options (global defaults)
 

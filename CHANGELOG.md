@@ -2,6 +2,19 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.6.1] - 2026-05-14
+
+### Changed — Unified command category
+
+- **All commands now live under `GitHub Artifacts:` in the command palette.** Earlier releases shipped a mix of `GitHub:` (artifact-flow commands) and `Asciinema:` (utilities and the cast-text toggle), which was confusing. The contract is now consistent:
+  - `GitHub Artifacts: Explorer` (was `GitHub: Artifacts Explorer`)
+  - `GitHub Artifacts: Open from CI Run` (was `GitHub: Open Artifacts from CI Run`)
+  - `GitHub Artifacts: Clear extension cache` (was `Asciinema: Clear extension cache`)
+  - `GitHub Artifacts: Stop HTML preview` (was `Asciinema: Stop HTML preview`)
+  - `GitHub Artifacts: Open as Text` (was `Asciinema: Open as Text`)
+- Command IDs (`asciinema.*`) are unchanged, so any keybindings users set up continue to work.
+- QuickPick titles and the HTML-preview pty banner updated to match.
+
 ## [0.6.0] - 2026-05-14
 
 ### Added — Zip-backed HTML previews ⚡

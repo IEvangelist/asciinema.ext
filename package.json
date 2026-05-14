@@ -2,7 +2,7 @@
   "name": "asciinema",
   "displayName": "GitHub Artifacts Explorer & Asciinema Player",
   "description": "Browse GitHub PR and CI run artifacts in VS Code — play asciinema casts, preview HTML sites in Simple Browser or your default browser, and explore extracted files, with live download progress, recents, and a per-cast player settings cog.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "davidpine-dev",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -210,31 +210,31 @@
       {
         "command": "asciinema.openAsText",
         "title": "Open as Text",
-        "category": "Asciinema",
+        "category": "GitHub Artifacts",
         "icon": "$(file-code)"
       },
       {
         "command": "asciinema.openFromPullRequest",
-        "title": "Artifacts Explorer",
-        "category": "GitHub",
+        "title": "Explorer",
+        "category": "GitHub Artifacts",
         "icon": "$(cloud-download)"
       },
       {
         "command": "asciinema.openFromActionsRun",
-        "title": "Open Artifacts from CI Run",
-        "category": "GitHub",
+        "title": "Open from CI Run",
+        "category": "GitHub Artifacts",
         "icon": "$(github-action)"
       },
       {
         "command": "asciinema.clearCache",
         "title": "Clear extension cache",
-        "category": "Asciinema",
+        "category": "GitHub Artifacts",
         "icon": "$(clear-all)"
       },
       {
         "command": "asciinema.stopHtmlPreview",
         "title": "Stop HTML preview",
-        "category": "Asciinema",
+        "category": "GitHub Artifacts",
         "icon": "$(debug-stop)"
       }
     ],
