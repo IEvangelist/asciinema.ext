@@ -105,7 +105,7 @@ export async function pickAndOpenArtifact(
         zipBytes = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Asciinema — Downloading artifact "${chosenArtifact.name}"`,
+                title: `GitHub Artifacts — Downloading "${chosenArtifact.name}"`,
                 cancellable: true,
             },
             async (progress, token2) => {
@@ -173,7 +173,7 @@ export async function pickAndOpenArtifact(
         bundle = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Asciinema — Inspecting "${chosenArtifact.name}"`,
+                title: `GitHub Artifacts — Inspecting "${chosenArtifact.name}"`,
                 cancellable: false,
             },
             () =>
@@ -277,7 +277,7 @@ async function pickArtifact(
     }
 
     const picked = await showQuickPick(items, {
-        title: "Asciinema — select an artifact",
+        title: "GitHub Artifacts — select an artifact",
         placeholder: "Type to filter — name, size, branch, sha, actor…",
         onTriggerItemButton: () => {
             void vscode.env.openExternal(vscode.Uri.parse(run.htmlUrl));

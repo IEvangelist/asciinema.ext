@@ -73,7 +73,7 @@ async function runFlow(
         run = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Asciinema — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
+                title: `GitHub Artifacts — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
             },
             () => getWorkflowRunById(token, repo, coords.runId)
         );
@@ -92,7 +92,7 @@ async function runFlow(
         artifacts = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: "Asciinema — Listing artifacts for run",
+                title: "GitHub Artifacts — Listing artifacts for run",
             },
             () => listArtifactsForRun(token, repo, coords.runId)
         );

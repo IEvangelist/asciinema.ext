@@ -2,6 +2,25 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.6.2] - 2026-05-15
+
+### Changed — Progress popup UX
+
+- **Progress popup titles now use the unified `GitHub Artifacts —` prefix.** Previously a handful of titles still read `Asciinema —` (downloads, extractions, lookup spinners, the cache-clear picker, etc.). All of them now match the new command-palette category.
+- **Progress message body redesigned as one fact per line.** Previously the message ran several stats together on each line (`458.3 MB of 695.1 MB · 65% · 12.4 MB/s`), which made it scan like a paragraph. The new layout puts each piece of information on its own line with a leading codicon:
+
+  ```
+  $(cloud-download) 458.3 MB of 695.1 MB
+  $(graph) 65% complete
+  $(dashboard) 12.4 MB/s
+  $(watch) Elapsed 38s
+  $(hourglass) ~21s remaining
+  🥖 You could've baked bread by now.
+  ```
+
+  Extraction popups use `$(file-zip)` and pair the byte total with the file count: `$(file-zip) 12,403 of 27,718 files (245.6 MB)`.
+- **Command-failure toast prefix updated.** `Asciinema — command failed:` → `GitHub Artifacts — command failed:`.
+
 ## [0.6.1] - 2026-05-14
 
 ### Changed — Unified command category

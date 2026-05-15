@@ -99,7 +99,7 @@ export async function clearCacheCommand(
     ];
 
     const picked = await vscode.window.showQuickPick(items, {
-        title: `Asciinema — Clear extension cache (${totalLabel})`,
+        title: `GitHub Artifacts — Clear extension cache (${totalLabel})`,
         placeHolder: "Pick what to clear…",
         ignoreFocusOut: true,
     });

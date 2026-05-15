@@ -350,7 +350,7 @@ async function runPrFlow(
         head = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Asciinema — Looking up ${coords.owner}/${coords.repo}#${coords.number}`,
+                title: `GitHub Artifacts — Looking up ${coords.owner}/${coords.repo}#${coords.number}`,
             },
             () => getPullRequestHead(token, coords)
         );
@@ -371,7 +371,7 @@ async function runPrFlow(
         runAndArtifacts = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: "Asciinema — Finding CI run with artifacts",
+                title: "GitHub Artifacts — Finding CI run with artifacts",
             },
             () => findRunWithArtifacts(token, coords, head.sha)
         );
@@ -429,7 +429,7 @@ async function runActionsRunFlow(
         run = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: `Asciinema — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
+                title: `GitHub Artifacts — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
             },
             () => getWorkflowRunById(token, repo, coords.runId)
         );
@@ -448,7 +448,7 @@ async function runActionsRunFlow(
         artifacts = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
-                title: "Asciinema — Listing artifacts for run",
+                title: "GitHub Artifacts — Listing artifacts for run",
             },
             () => listArtifactsForRun(token, repo, coords.runId)
         );

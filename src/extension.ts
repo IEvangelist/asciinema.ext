@@ -74,7 +74,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         err
                     );
                     await vscode.window.showErrorMessage(
-                        `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
                     );
                 }
             }
@@ -93,7 +93,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         err
                     );
                     await vscode.window.showErrorMessage(
-                        `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
                     );
                 }
             }
@@ -107,7 +107,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             } catch (err) {
                 console.error("[asciinema] clearCache failed:", err);
                 await vscode.window.showErrorMessage(
-                    `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                    `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
                 );
             }
         })
@@ -125,7 +125,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         err
                     );
                     await vscode.window.showErrorMessage(
-                        `Asciinema — command failed: ${(err as Error)?.message ?? String(err)}`
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
                     );
                 }
             }

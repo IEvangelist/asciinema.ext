@@ -60,7 +60,7 @@ export async function stopHtmlPreviewCommand(): Promise<void> {
     ];
 
     const picked = await vscode.window.showQuickPick(items, {
-        title: "Asciinema — Stop HTML preview",
+        title: "GitHub Artifacts — Stop HTML preview",
         placeHolder: "Pick a preview to stop, or pick Stop all…",
         ignoreFocusOut: true,
     });

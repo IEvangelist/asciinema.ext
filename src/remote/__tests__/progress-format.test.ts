@@ -58,7 +58,7 @@ describe("estimateEtaMs", () => {
 });
 
 describe("buildProgressMessage", () => {
-    it("renders bytes-of-bytes with rate, eta, and quip on three lines", () => {
+    it("renders bytes/total/pct/speed/elapsed/eta/quip on six lines", () => {
         const msg = buildProgressMessage({
             received: 458 * 1024 * 1024,
             total: 695 * 1024 * 1024,
@@ -66,21 +66,26 @@ describe("buildProgressMessage", () => {
             quip: "🥖 You could've baked bread by now.",
         });
         const lines = msg.split("\n");
-        assert.equal(lines.length, 3);
-        assert.match(lines[0], /458\.0 MB of 695\.0 MB · 65% · [\d.]+ MB\/s/);
-        assert.match(lines[1], /Elapsed 38s · ~\d+s remaining/);
-        assert.equal(lines[2], "🥖 You could've baked bread by now.");
+        assert.equal(lines.length, 6);
+        assert.match(lines[0], /^\$\(cloud-download\) 458\.0 MB of 695\.0 MB$/);
+        assert.match(lines[1], /^\$\(graph\) 65% complete$/);
+        assert.match(lines[2], /^\$\(dashboard\) [\d.]+ MB\/s$/);
+        assert.match(lines[3], /^\$\(watch\) Elapsed 38s$/);
+        assert.match(lines[4], /^\$\(hourglass\) ~\d+s remaining$/);
+        assert.equal(lines[5], "🥖 You could've baked bread by now.");
     });
 
-    it("omits ETA line element when total is unknown", () => {
+    it("omits the eta line when total is unknown", () => {
         const msg = buildProgressMessage({
             received: 1024 * 1024,
             elapsedMs: 2_000,
         });
         const lines = msg.split("\n");
-        assert.equal(lines.length, 2);
-        assert.match(lines[0], /1\.0 MB downloaded/);
-        assert.equal(lines[1], "Elapsed 2s");
+        // size + speed + elapsed (no %, no eta, no quip)
+        assert.equal(lines.length, 3);
+        assert.match(lines[0], /^\$\(cloud-download\) 1\.0 MB downloaded$/);
+        assert.match(lines[1], /^\$\(dashboard\) [\d.]+ KB\/s|^\$\(dashboard\) [\d.]+ MB\/s/);
+        assert.match(lines[2], /^\$\(watch\) Elapsed 2s$/);
     });
 
     it("uses files-of-files headline for extraction phase", () => {
@@ -91,13 +96,16 @@ describe("buildProgressMessage", () => {
             quip: "🗜️ Squeezing the last bytes…",
         });
         const lines = msg.split("\n");
-        assert.equal(lines.length, 3);
+        assert.equal(lines.length, 6);
         assert.match(
             lines[0],
-            /12,403 of 27,718 files · 245\.0 MB · 44%/
+            /^\$\(file-zip\) 12,403 of 27,718 files \(245\.0 MB\)$/
         );
-        assert.match(lines[1], /Elapsed 14s · ~\d+s remaining · [\d.]+ MB\/s/);
-        assert.equal(lines[2], "🗜️ Squeezing the last bytes…");
+        assert.match(lines[1], /^\$\(graph\) 44% complete$/);
+        assert.match(lines[2], /^\$\(dashboard\) [\d.]+ MB\/s$/);
+        assert.match(lines[3], /^\$\(watch\) Elapsed 14s$/);
+        assert.match(lines[4], /^\$\(hourglass\) ~\d+s remaining$/);
+        assert.equal(lines[5], "🗜️ Squeezing the last bytes…");
     });
 
     it("omits quip line when not provided", () => {
@@ -107,6 +115,10 @@ describe("buildProgressMessage", () => {
             elapsedMs: 1_000,
         });
         const lines = msg.split("\n");
-        assert.equal(lines.length, 2);
+        // size + % + (no speed because rate is tiny but >0 → KB/s)... + elapsed
+        // 100B in 1s = 100 B/s, formatBytesShort emits "100 B/s" → non-empty → speed line present.
+        // size + % + speed + elapsed = 4 lines, no eta because we're at 10% and elapsed 1s → eta=9s (present!) → 5 lines, no quip.
+        assert.equal(lines.length, 5);
+        assert.ok(!lines.some((l) => l.includes("🥖")));
     });
 });

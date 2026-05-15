@@ -92,60 +92,81 @@ export interface ProgressLineInputs {
 }
 
 /**
- * Builds a multi-line progress message. Layout (download example):
+ * Builds a multi-line progress notification message with one fact per
+ * line and a codicon prefix on each. VS Code's progress renderer turns
+ * `\n` into actual line breaks and renders `$(name)` codicons inline,
+ * so the result is scannable at a glance — each datum reads as its
+ * own labeled line rather than running together as one sentence.
  *
- *   458.3 MB of 695.1 MB · 65% · 12.4 MB/s
- *   Elapsed 38s · ~21s remaining
+ * Download layout (when total is known):
+ *
+ *   $(cloud-download) 458.3 MB of 695.1 MB
+ *   $(graph) 65% complete
+ *   $(dashboard) 12.4 MB/s
+ *   $(watch) Elapsed 38s
+ *   $(hourglass) ~21s remaining
  *   🥖 You could've baked bread by now.
  *
- * For the extraction phase (when `files` is provided):
+ * Download layout (total unknown — rare; Content-Length missing):
  *
- *   12,403 of 27,718 files · 245.6 MB · 45%
- *   Elapsed 14s · ~17s remaining · 18.0 MB/s
+ *   $(cloud-download) 1.0 MB downloaded
+ *   $(dashboard) 5.5 MB/s
+ *   $(watch) Elapsed 2s
+ *
+ * Extraction layout (when `files` is provided):
+ *
+ *   $(file-zip) 12,403 of 27,718 files (245.6 MB)
+ *   $(graph) 45% complete
+ *   $(dashboard) 18.0 MB/s
+ *   $(watch) Elapsed 14s
+ *   $(hourglass) ~17s remaining
  *   🗜️ Squeezing the last bytes out…
- *
- * Lines are separated by `\n` which VS Code's notification renderer turns
- * into actual line breaks.
  */
 export function buildProgressMessage(input: ProgressLineInputs): string {
     const lines: string[] = [];
+    const rate = formatRate(
+        input.elapsedMs > 0 ? input.received / (input.elapsedMs / 1000) : 0
+    );
 
-    // Line 1 — primary size / count.
     if (input.files) {
-        const pct =
-            input.files.total > 0
-                ? Math.min(
-                      100,
-                      Math.floor(
-                          (input.files.written / input.files.total) * 100
-                      )
-                  )
-                : 0;
+        // Extraction phase: file count is the headline fact, byte total
+        // is a parenthetical so the eye still groups them as "how much
+        // we've written" without merging them with the percentage row.
         const writtenStr = input.files.written.toLocaleString();
         const totalStr = input.files.total.toLocaleString();
         const sizeStr = formatBytesShort(input.received);
         lines.push(
-            `${writtenStr} of ${totalStr} files · ${sizeStr} · ${pct}%`
+            `$(file-zip) ${writtenStr} of ${totalStr} files (${sizeStr})`
         );
+        if (input.files.total > 0) {
+            const pct = Math.min(
+                100,
+                Math.floor((input.files.written / input.files.total) * 100)
+            );
+            lines.push(`$(graph) ${pct}% complete`);
+        }
     } else {
         const recvStr = formatBytesShort(input.received);
         if (input.total && input.total > 0) {
+            const totalStr = formatBytesShort(input.total);
             const pct = Math.min(
                 100,
                 Math.floor((input.received / input.total) * 100)
             );
-            const totalStr = formatBytesShort(input.total);
-            const rate = formatRate(input.received / (input.elapsedMs / 1000));
-            const head = `${recvStr} of ${totalStr} · ${pct}%`;
-            lines.push(rate ? `${head} · ${rate}` : head);
+            lines.push(`$(cloud-download) ${recvStr} of ${totalStr}`);
+            lines.push(`$(graph) ${pct}% complete`);
         } else {
-            const rate = formatRate(input.received / (input.elapsedMs / 1000));
-            lines.push(rate ? `${recvStr} downloaded · ${rate}` : `${recvStr} downloaded`);
+            lines.push(`$(cloud-download) ${recvStr} downloaded`);
         }
     }
 
-    // Line 2 — timing (elapsed + ETA + rate-when-files-known).
+    if (rate) {
+        lines.push(`$(dashboard) ${rate}`);
+    }
+
     const elapsedStr = formatDuration(input.elapsedMs);
+    lines.push(`$(watch) Elapsed ${elapsedStr}`);
+
     const fraction = input.files
         ? input.files.total > 0
             ? input.files.written / input.files.total
@@ -154,19 +175,10 @@ export function buildProgressMessage(input: ProgressLineInputs): string {
             ? input.received / input.total
             : 0;
     const etaMs = estimateEtaMs(input.elapsedMs, fraction);
-    const timingParts = [`Elapsed ${elapsedStr}`];
     if (etaMs !== undefined) {
-        timingParts.push(`~${formatDuration(etaMs)} remaining`);
+        lines.push(`$(hourglass) ~${formatDuration(etaMs)} remaining`);
     }
-    if (input.files && input.elapsedMs > 0) {
-        const rate = formatRate(input.received / (input.elapsedMs / 1000));
-        if (rate) {
-            timingParts.push(rate);
-        }
-    }
-    lines.push(timingParts.join(" · "));
 
-    // Line 3 — optional quip.
     if (input.quip) {
         lines.push(input.quip);
     }

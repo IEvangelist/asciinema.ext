@@ -219,8 +219,8 @@ async function runExtractWithProgress(
         {
             location: vscode.ProgressLocation.Notification,
             title: resume
-                ? `Asciinema — Resuming extraction "${ctx.artifact.name}"`
-                : `Asciinema — Extracting artifact "${ctx.artifact.name}"`,
+                ? `GitHub Artifacts — Resuming extraction "${ctx.artifact.name}"`
+                : `GitHub Artifacts — Extracting artifact "${ctx.artifact.name}"`,
             cancellable: true,
         },
         async (progress, token) => {
@@ -368,7 +368,7 @@ async function handleZipLimitError(
     let newRaw = suggestedRaw;
     if (choice === customRetry) {
         const input = await vscode.window.showInputBox({
-            title: `Asciinema — ${meta.settingLabel}`,
+            title: `GitHub Artifacts — ${meta.settingLabel}`,
             prompt: `Enter a new cap in ${meta.unit}. Current: ${currentDisp.toLocaleString()}. Observed: ${observedDisp.toLocaleString()}.`,
             value: String(suggestedDisp),
             validateInput: (v) => {

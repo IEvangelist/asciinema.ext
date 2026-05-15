@@ -146,7 +146,7 @@ async function pickCast(casts: CastInfo[]): Promise<CastInfo | undefined> {
     }
 
     const picked = await showQuickPick(items, {
-        title: "Asciinema — select a recording",
+        title: "GitHub Artifacts — select a recording",
         placeholder: "Type to filter — name, path, or size…",
     });
     return picked?.cast;
