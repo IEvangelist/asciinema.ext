@@ -2,6 +2,20 @@
 
 All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** extension will be documented in this file.
 
+## [0.6.3] - 2026-05-18
+
+### Fixed — Progress popup garbled output
+
+- **Progress popup messages no longer leak `$(codicon)` tokens or run together as a single wall of text.** v0.6.2 introduced a multi-line layout that assumed VS Code's `progress.report({ message })` would render `$(name)` codicon tokens inline and turn `\n` into actual line breaks. In practice the notification toast renders `message` as a plain DOM text node — so the popup showed literal `$(cloud-download)`, `$(graph)`, `$(dashboard)`, `$(watch)`, and `$(hourglass)` glued together by collapsed newlines (see the bug report screenshot from v0.6.2).
+- **New layout: single line, ` · `-separated, emoji-prefixed.** Each fact still leads with its own glyph, but now with universal-rendering emoji instead of codicons:
+
+  ```
+  📥 458.3 MB of 695.1 MB · 📊 65% · ⚡ 12.4 MB/s · ⏱ 38s elapsed · ⏳ ~21s remaining · 🥖 You could've baked bread by now.
+  ```
+
+  Extraction popups use 🗜 for the file-count headline: `🗜 12,403 of 27,718 files (245.6 MB) · 📊 45% · …`.
+- Added a sanity assertion in `progress-format.test.ts` that fails the build if a `$(…)` codicon token or a `\n` ever sneaks back into a built progress message.
+
 ## [0.6.2] - 2026-05-15
 
 ### Changed — Progress popup UX

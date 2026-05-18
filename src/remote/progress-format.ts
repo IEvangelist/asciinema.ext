@@ -1,11 +1,15 @@
 /**
- * Small helpers for building multi-line progress notification messages used
- * by the download + extraction phases of the Artifacts Explorer command.
+ * Small helpers for building progress notification messages used by the
+ * download + extraction phases of the Artifacts Explorer command.
  *
- * VS Code's `withProgress` notification renders `\n` in the message as a
- * line break and grows vertically — we lean on that to give the user
- * size, throughput, ETA, elapsed time, and (optionally) a humorous quip
- * each on their own line.
+ * VS Code's `withProgress` notification renders the `message` field as a
+ * plain DOM text node inside a `<span>` with default `white-space`, so:
+ *   - `\n` newlines collapse to whitespace (no vertical layout)
+ *   - `$(name)` codicon tokens render as literal text
+ *
+ * We therefore lay out facts on a single line separated by ` · `, and use
+ * emoji glyphs (which DO render) instead of `$(name)` codicon tokens as
+ * the leading visual marker for each fact.
  */
 
 import { formatBytesShort } from "./quickpick-helpers.js";
@@ -92,38 +96,34 @@ export interface ProgressLineInputs {
 }
 
 /**
- * Builds a multi-line progress notification message with one fact per
- * line and a codicon prefix on each. VS Code's progress renderer turns
- * `\n` into actual line breaks and renders `$(name)` codicons inline,
- * so the result is scannable at a glance — each datum reads as its
- * own labeled line rather than running together as one sentence.
+ * Separator placed between facts in the rendered progress message. We
+ * use ` · ` (U+00B7 middle dot) because VS Code's notification renders
+ * the `message` as plain text on a single (wrappable) line — `\n` does
+ * not produce a line break here.
+ */
+const SEPARATOR = " · ";
+
+/**
+ * Builds a progress notification message as a ` · `-separated single line
+ * with an emoji glyph in front of each fact. VS Code's progress renderer
+ * does NOT process `$(name)` codicon tokens or honor `\n` in the message
+ * field, so we use emoji (which render universally) and a middle-dot
+ * separator that still reads as a list when the toast wraps.
  *
  * Download layout (when total is known):
  *
- *   $(cloud-download) 458.3 MB of 695.1 MB
- *   $(graph) 65% complete
- *   $(dashboard) 12.4 MB/s
- *   $(watch) Elapsed 38s
- *   $(hourglass) ~21s remaining
- *   🥖 You could've baked bread by now.
+ *   📥 458.3 MB of 695.1 MB · 📊 65% · ⚡ 12.4 MB/s · ⏱ 38s elapsed · ⏳ ~21s remaining · 🥖 You could've baked bread by now.
  *
  * Download layout (total unknown — rare; Content-Length missing):
  *
- *   $(cloud-download) 1.0 MB downloaded
- *   $(dashboard) 5.5 MB/s
- *   $(watch) Elapsed 2s
+ *   📥 1.0 MB downloaded · ⚡ 5.5 MB/s · ⏱ 2s elapsed
  *
  * Extraction layout (when `files` is provided):
  *
- *   $(file-zip) 12,403 of 27,718 files (245.6 MB)
- *   $(graph) 45% complete
- *   $(dashboard) 18.0 MB/s
- *   $(watch) Elapsed 14s
- *   $(hourglass) ~17s remaining
- *   🗜️ Squeezing the last bytes out…
+ *   🗜 12,403 of 27,718 files (245.6 MB) · 📊 45% · ⚡ 18.0 MB/s · ⏱ 14s elapsed · ⏳ ~17s remaining · 🗜️ Squeezing the last bytes out…
  */
 export function buildProgressMessage(input: ProgressLineInputs): string {
-    const lines: string[] = [];
+    const parts: string[] = [];
     const rate = formatRate(
         input.elapsedMs > 0 ? input.received / (input.elapsedMs / 1000) : 0
     );
@@ -131,19 +131,17 @@ export function buildProgressMessage(input: ProgressLineInputs): string {
     if (input.files) {
         // Extraction phase: file count is the headline fact, byte total
         // is a parenthetical so the eye still groups them as "how much
-        // we've written" without merging them with the percentage row.
+        // we've written" without merging them with the percentage segment.
         const writtenStr = input.files.written.toLocaleString();
         const totalStr = input.files.total.toLocaleString();
         const sizeStr = formatBytesShort(input.received);
-        lines.push(
-            `$(file-zip) ${writtenStr} of ${totalStr} files (${sizeStr})`
-        );
+        parts.push(`🗜 ${writtenStr} of ${totalStr} files (${sizeStr})`);
         if (input.files.total > 0) {
             const pct = Math.min(
                 100,
                 Math.floor((input.files.written / input.files.total) * 100)
             );
-            lines.push(`$(graph) ${pct}% complete`);
+            parts.push(`📊 ${pct}%`);
         }
     } else {
         const recvStr = formatBytesShort(input.received);
@@ -153,19 +151,19 @@ export function buildProgressMessage(input: ProgressLineInputs): string {
                 100,
                 Math.floor((input.received / input.total) * 100)
             );
-            lines.push(`$(cloud-download) ${recvStr} of ${totalStr}`);
-            lines.push(`$(graph) ${pct}% complete`);
+            parts.push(`📥 ${recvStr} of ${totalStr}`);
+            parts.push(`📊 ${pct}%`);
         } else {
-            lines.push(`$(cloud-download) ${recvStr} downloaded`);
+            parts.push(`📥 ${recvStr} downloaded`);
         }
     }
 
     if (rate) {
-        lines.push(`$(dashboard) ${rate}`);
+        parts.push(`⚡ ${rate}`);
     }
 
     const elapsedStr = formatDuration(input.elapsedMs);
-    lines.push(`$(watch) Elapsed ${elapsedStr}`);
+    parts.push(`⏱ ${elapsedStr} elapsed`);
 
     const fraction = input.files
         ? input.files.total > 0
@@ -176,12 +174,12 @@ export function buildProgressMessage(input: ProgressLineInputs): string {
             : 0;
     const etaMs = estimateEtaMs(input.elapsedMs, fraction);
     if (etaMs !== undefined) {
-        lines.push(`$(hourglass) ~${formatDuration(etaMs)} remaining`);
+        parts.push(`⏳ ~${formatDuration(etaMs)} remaining`);
     }
 
     if (input.quip) {
-        lines.push(input.quip);
+        parts.push(input.quip);
     }
 
-    return lines.join("\n");
+    return parts.join(SEPARATOR);
 }
