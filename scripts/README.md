@@ -21,6 +21,26 @@ through every state with scripted timing, and records the result to
 This is the video that ships in the README. Regenerate it any time you
 change copy/colors/timing inside `scripts/demo/*`.
 
+### Regenerating the GIF + MP4
+
+The README embeds `media/demo-explorer.gif` (since GitHub README markdown and the
+VS Code Marketplace strip `<video>` tags), and links `media/demo-explorer.mp4`
+for higher-quality playback. After regenerating the `.webm`, transcode both:
+
+```powershell
+# From repo root. Requires ffmpeg on PATH (winget install Gyan.FFmpeg).
+$ff = 'ffmpeg'
+
+# GIF — 12 fps, 760px wide, ~5 MB. Tuned for inline rendering on GitHub + Marketplace.
+& $ff -y -i media\demo-explorer.webm -vf "fps=12,scale=760:-1:flags=lanczos,palettegen=stats_mode=diff" media\.palette.png
+& $ff -y -i media\demo-explorer.webm -i media\.palette.png -lavfi "fps=12,scale=760:-1:flags=lanczos [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" media\demo-explorer.gif
+Remove-Item media\.palette.png
+
+# MP4 — H.264, ~1.3 MB. Drag this into a GitHub web README/issue/PR editor to
+# get an inline-playable user-attachments URL.
+& $ff -y -i media\demo-explorer.webm -c:v libx264 -crf 23 -preset slow -pix_fmt yuv420p -movflags +faststart media\demo-explorer.mp4
+```
+
 ### Editing the mockup
 
 - `scripts/demo/mockup.html` — single-page VS Code mockup. All scenes are

@@ -7,13 +7,21 @@
 > **View your CI artifacts and asciinema recordings without leaving VS Code.** Paste a PR or workflow-run URL → pick an artifact → the right viewer opens. HTML test reports stream from the cached zip into the Simple Browser. `.cast` recordings play inline. Everything else lands in a file browser.
 
 <p align="center">
-  <video src="media/demo-explorer.webm" controls muted playsinline width="900" poster="media/demo.gif">
-    <!-- Fallback for marketplace / older renderers: -->
-    <img src="media/demo.gif" alt="GitHub Artifacts: Explorer — paste a URL, pick an artifact, open the HTML preview in the Simple Browser." width="900" />
-  </video>
+  <img src="media/demo-explorer.gif" alt="GitHub Artifacts: Explorer — paste a URL, pick an artifact, open the HTML preview in the Simple Browser." width="900" />
   <br />
-  <sub><sup><em>Demo: <code>GitHub Artifacts: Explorer</code> → paste a PR URL → pick an artifact → preview the Playwright HTML report in VS Code. <a href="media/demo-explorer.webm">Watch (34 s)</a>.</em></sup></sub>
+  <sub><sup><em>Demo: <code>GitHub Artifacts: Explorer</code> → paste a PR URL → pick an artifact → preview the Playwright HTML report in VS Code.</em></sup></sub>
+  <br />
+  <sub><sup><em>Higher-quality clips: <a href="media/demo-explorer.mp4">MP4 (1.3 MB)</a> · <a href="media/demo-explorer.webm">WebM (2.8 MB)</a> (download to play).</em></sup></sub>
 </p>
+
+<!--
+  GitHub README markdown and the VS Code Marketplace both strip <video> tags, so
+  the GIF above is the canonical inline preview. To get inline video playback on
+  github.com/IEvangelist/asciinema.ext, drag-and-drop media/demo-explorer.mp4
+  into the README editor on github.com — GitHub will rewrite it to a
+  user-attachments CDN URL that DOES render inline. Then replace the GIF block
+  with the resulting <video> tag.
+-->
 
 > ℹ️ Independent, third-party extension. Built on top of [asciinema](https://asciinema.org) — see [Credits](#credits--acknowledgements).
 
@@ -219,10 +227,20 @@ See the [asciinema player options docs](https://docs.asciinema.org/manual/player
 
 ## 🎥 About the demo recordings
 
-The demo video in this README is generated reproducibly from an HTML mockup —
-not a real VS Code capture. The full pipeline lives under [`scripts/`](scripts/README.md):
+The demo in this README is generated reproducibly from an HTML mockup —
+not a real VS Code capture. Three artifacts ship under `media/`:
 
-- `scripts/demo/record-video.mjs` — Playwright-driven recorder. Run with `npm run record:demo` to regenerate `media/demo-explorer.webm`.
+| File | Size | Best for |
+| --- | --- | --- |
+| `media/demo-explorer.gif` | ~4.8 MB | Inline rendering on GitHub.com README and the VS Code Marketplace |
+| `media/demo-explorer.mp4` | ~1.3 MB | Drag-drop into a GitHub issue/PR/release to get an inline-playable user-attachments URL |
+| `media/demo-explorer.webm` | ~2.8 MB | Source-of-truth recording from Playwright; download to play |
+
+> 💡 **Want inline video playback on github.com?** Drag `media/demo-explorer.mp4` into the GitHub web README editor — GitHub rewrites it to a `user-attachments` CDN URL that renders as a real `<video>` element. The GIF in this README is the always-works fallback (marketplace + mirrors strip `<video>` tags).
+
+The full pipeline lives under [`scripts/`](scripts/README.md):
+
+- `scripts/demo/record-video.mjs` — Playwright-driven recorder. Run with `npm run record:demo` to regenerate `media/demo-explorer.webm`. Then transcode to GIF + MP4 with `ffmpeg` (see [scripts/README.md](scripts/README.md#regenerating-the-gif--mp4)).
 - `scripts/record-demo.ps1` — alternative Windows-only script that drives a real VS Code instance via `ffmpeg gdigrab` + SendKeys. Useful for marketing captures or verifying the mockup matches reality.
 
 See [scripts/README.md](scripts/README.md) for the full setup.

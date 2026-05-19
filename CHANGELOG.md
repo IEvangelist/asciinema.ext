@@ -7,7 +7,7 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 ### Changed — Onboarding overhaul (docs + demo)
 
 - **New README structure.** Reorganized around install → quick start → reference, with three numbered scenarios up top (play a `.cast`, open from PR, open from CI run) so a first-time visitor knows exactly which flow matches their use case. Added a **Troubleshooting** section with collapsible FAQs covering the most common confusions (auth scope prompt, missing commands, stuck preview port, cache cleanup, "Open as Text" on a cast).
-- **New demo recording in the README** (`media/demo-explorer.webm`, ~34s, 1280×800) showing the full `GitHub Artifacts: Explorer` workflow: command palette → paste a PR URL → pick an artifact → live download progress → opening a Playwright HTML test report in VS Code's Simple Browser. Kept `media/demo.gif` as the fallback poster image for renderers that strip `<video>`.
+- **New demo recording in the README** (`media/demo-explorer.gif`, ~4.8 MB; plus `media/demo-explorer.mp4` and `media/demo-explorer.webm` for higher-quality playback) showing the full `GitHub Artifacts: Explorer` workflow: command palette → paste a PR URL → pick an artifact → live download progress → opening a Playwright HTML test report in VS Code's Simple Browser. The GIF is the inline-render path because GitHub README markdown and the VS Code Marketplace both strip `<video>` tags; the MP4 is the drag-drop-into-the-GH-web-editor path if you want native `<video>` playback on github.com.
 
 ### Added — Reproducible demo recording pipeline
 
