@@ -254,7 +254,8 @@
     "lint": "eslint \"src/**/*.ts\"",
     "test": "tsc -p tsconfig.test.json && node --test \"dist-test/**/*.test.js\"",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "record:demo": "node scripts/demo/record-video.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -263,6 +264,7 @@
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.4",
+    "playwright": "^1.60.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.1"
   },
