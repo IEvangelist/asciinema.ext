@@ -16,6 +16,7 @@ import {
     stopHtmlPreviewCommand,
 } from "./remote/stop-preview-command.js";
 import { previewRegistry } from "./remote/preview-registry.js";
+import { registerDeepLinkUriHandler } from "./remote/deep-link-uri-handler.js";
 
 let extensionContext: vscode.ExtensionContext | undefined;
 
@@ -65,9 +66,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         vscode.commands.registerCommand(
             "asciinema.openFromPullRequest",
-            async () => {
+            async (arg?: unknown) => {
                 try {
-                    await openFromPullRequestCommand(context);
+                    await openFromPullRequestCommand(
+                        context,
+                        toPrefilledUrlOptions(arg)
+                    );
                 } catch (err) {
                     console.error(
                         "[asciinema] openFromPullRequest failed:",
@@ -84,9 +88,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         vscode.commands.registerCommand(
             "asciinema.openFromActionsRun",
-            async () => {
+            async (arg?: unknown) => {
                 try {
-                    await openFromActionsRunCommand(context);
+                    await openFromActionsRunCommand(
+                        context,
+                        toPrefilledUrlOptions(arg)
+                    );
                 } catch (err) {
                     console.error(
                         "[asciinema] openFromActionsRun failed:",
@@ -132,6 +139,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )
     );
 
+    context.subscriptions.push(registerDeepLinkUriHandler(context));
     context.subscriptions.push(createPreviewStatusBarItem());
 
     void cleanupOlderSessions(context, getKnownArtifactPaths());
@@ -152,4 +160,19 @@ export async function deactivate(): Promise<void> {
     if (extensionContext) {
         await cleanupCurrentSession(extensionContext);
     }
+}
+
+function toPrefilledUrlOptions(arg: unknown): { readonly prefilledUrl?: string } {
+    if (typeof arg === "string") {
+        return { prefilledUrl: arg };
+    }
+    if (
+        typeof arg === "object" &&
+        arg !== null &&
+        "prefilledUrl" in arg &&
+        typeof arg.prefilledUrl === "string"
+    ) {
+        return { prefilledUrl: arg.prefilledUrl };
+    }
+    return {};
 }

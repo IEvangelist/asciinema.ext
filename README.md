@@ -179,6 +179,23 @@ Click the `$(file-code)` icon in the editor title bar of a `.cast` viewer (or ru
 | `GitHub Artifacts: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
 | `GitHub Artifacts: Open as Text` | Open the active `.cast` recording as raw NDJSON in a text editor (also exposed as a button in the editor title bar of the player). |
 
+### Deep links
+
+External pages can open the installed extension by linking to the extension URI handler. Put the GitHub PR or Actions run URL in a percent-encoded `url` query parameter:
+
+```text
+vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F123
+vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Factions%2Fruns%2F123456
+```
+
+Use `vscode-insiders://` for VS Code Insiders. Links generated from inside VS Code should use `vscode.env.asExternalUri(...)` so VS Code can route them back to the current window.
+
+For trusted VS Code surfaces only (for example a webview with command URIs enabled), the commands also accept a prefilled URL argument:
+
+```text
+command:asciinema.openFromPullRequest?%5B%7B%22prefilledUrl%22%3A%22https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F123%22%7D%5D
+```
+
 ### Artifact download / extraction caps
 
 | Setting | Default | Description |

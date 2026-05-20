@@ -46,11 +46,17 @@ import {
  * an Actions run URL — the command is the central "Artifacts Explorer"
  * surface, with recents from both sources listed together.
  */
+export interface OpenFromPullRequestOptions {
+    readonly prefilledUrl?: string;
+}
+
 export async function openFromPullRequestCommand(
-    context: vscode.ExtensionContext
+    context: vscode.ExtensionContext,
+    options: OpenFromPullRequestOptions = {}
 ): Promise<void> {
-    const recent = await listRecent();
-    const choice = await pickStartingPoint(recent);
+    const choice = options.prefilledUrl
+        ? ({ kind: "new", prefilledUrl: options.prefilledUrl } as const)
+        : await pickStartingPoint(await listRecent());
     if (!choice) {
         return;
     }

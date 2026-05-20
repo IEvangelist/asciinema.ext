@@ -4,6 +4,14 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-05-20
+
+### Added — VS Code deep links
+
+- **External deep links can open the artifact explorer directly.** Links like `vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F123` now activate the extension, validate the encoded GitHub PR or Actions run URL, and route into the existing artifact picker flow without first asking the user to paste the URL.
+- **Deep-link handling is strict by default.** The handler only accepts the `/open` path, exactly one `url` parameter, and VS Code's optional `windowId` routing metadata; unsupported parameters and non-PR/run URLs are rejected with a normal VS Code error message.
+- **Trusted command links can prefill URLs too.** VS Code `command:` URIs in trusted extension surfaces can pass `{ "prefilledUrl": "..." }` to the existing `asciinema.openFromPullRequest` / `asciinema.openFromActionsRun` commands.
+
 ### Changed — Onboarding overhaul (docs + demo)
 
 - **New README structure.** Reorganized around install → quick start → reference, with three numbered scenarios up top (play a `.cast`, open from PR, open from CI run) so a first-time visitor knows exactly which flow matches their use case. Added a **Troubleshooting** section with collapsible FAQs covering the most common confusions (auth scope prompt, missing commands, stuck preview port, cache cleanup, "Open as Text" on a cast).
