@@ -5,14 +5,11 @@ import {
 } from "./parse-pr-url.js";
 import {
     parseActionsRunUrl,
-    type ActionsRunCoordinates,
 } from "./parse-run-url.js";
 import {
     findRunWithArtifacts,
     getGitHubSession,
     getPullRequestHead,
-    getWorkflowRunById,
-    listArtifactsForRun,
     type WorkflowArtifact,
     type WorkflowRunSummary,
 } from "./github-client.js";
@@ -29,7 +26,6 @@ import {
     type RecentArtifact,
 } from "./recent-artifacts.js";
 import {
-    fromActionsRun,
     fromPullRequest,
     pullRequestUrl,
     repoOf,
@@ -38,6 +34,8 @@ import {
     handleApiError,
     pickAndOpenArtifact,
 } from "./download-and-open.js";
+import { runActionsRunFlow } from "./actions-run-flow.js";
+import { pickActiveWorkflowRunForPullRequest } from "./pending-pr-runs.js";
 
 /**
  * Command implementation for `asciinema.openFromPullRequest`.
@@ -392,16 +390,27 @@ async function runPrFlow(
     }
 
     if (!runAndArtifacts) {
-        const choice = await vscode.window.showErrorMessage(
-            `No completed workflow run with artifacts found for commit ${head.sha.slice(
-                0,
-                7
-            )} on PR #${coords.number}.`,
-            "Open PR in Browser"
+        const selectedRun = await pickActiveWorkflowRunForPullRequest(
+            token,
+            coords,
+            head
         );
-        if (choice === "Open PR in Browser") {
-            await vscode.env.openExternal(vscode.Uri.parse(head.htmlUrl));
+        if (!selectedRun) {
+            return;
         }
+        await runActionsRunFlow(
+            context,
+            {
+                owner: coords.owner,
+                repo: coords.repo,
+                runId: selectedRun.id,
+            },
+            {
+                initialRun: selectedRun,
+                source: fromPullRequest(coords),
+                waitIfNotReady: true,
+            }
+        );
         return;
     }
 
@@ -414,86 +423,6 @@ async function runPrFlow(
         {
             fallbackLabel: "Open PR in Browser",
             fallbackUrl: head.htmlUrl,
-        }
-    );
-}
-
-async function runActionsRunFlow(
-    context: vscode.ExtensionContext,
-    coords: ActionsRunCoordinates
-): Promise<void> {
-    const session = await acquireSession();
-    if (!session) {
-        return;
-    }
-    const token = session.accessToken;
-    const repo = { owner: coords.owner, repo: coords.repo };
-    const runUrl = `https://github.com/${coords.owner}/${coords.repo}/actions/runs/${coords.runId}`;
-
-    let run: WorkflowRunSummary;
-    try {
-        run = await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: `GitHub Artifacts — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
-            },
-            () => getWorkflowRunById(token, repo, coords.runId)
-        );
-    } catch (err) {
-        await handleApiError(err, {
-            notFoundMessage: `Couldn't access run ${coords.owner}/${coords.repo} #${coords.runId}.`,
-            fallbackLabel: "Open Run in Browser",
-            fallbackUrl: runUrl,
-            retry: () => runActionsRunFlow(context, coords),
-        });
-        return;
-    }
-
-    let artifacts: WorkflowArtifact[];
-    try {
-        artifacts = await vscode.window.withProgress(
-            {
-                location: vscode.ProgressLocation.Notification,
-                title: "GitHub Artifacts — Listing artifacts for run",
-            },
-            () => listArtifactsForRun(token, repo, coords.runId)
-        );
-    } catch (err) {
-        await handleApiError(err, {
-            notFoundMessage: "Failed to list artifacts for this run.",
-            fallbackLabel: "Open Run in Browser",
-            fallbackUrl: run.htmlUrl,
-            retry: () => runActionsRunFlow(context, coords),
-        });
-        return;
-    }
-
-    if (artifacts.length === 0) {
-        const inProgress =
-            run.conclusion === null &&
-            run.status !== null &&
-            run.status !== "completed";
-        const message = inProgress
-            ? `Run "${run.name ?? "workflow"}" #${run.runNumber} is still ${run.status ?? "in progress"} — no artifacts uploaded yet.`
-            : `No non-expired artifacts found for run "${run.name ?? "workflow"}" #${run.runNumber}.`;
-        const choice = await vscode.window.showWarningMessage(
-            message,
-            "Open Run in Browser"
-        );
-        if (choice === "Open Run in Browser") {
-            await vscode.env.openExternal(vscode.Uri.parse(run.htmlUrl));
-        }
-        return;
-    }
-
-    await pickAndOpenArtifact(
-        context,
-        fromActionsRun(coords),
-        run,
-        artifacts,
-        {
-            fallbackLabel: "Open Run in Browser",
-            fallbackUrl: run.htmlUrl,
         }
     );
 }

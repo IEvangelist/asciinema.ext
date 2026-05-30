@@ -102,6 +102,7 @@ Open any `.cast` file and it plays — right inside an editor tab.
 | --- | --- |
 | **HTML previews stream straight from the zip** | Downloaded artifacts park as `globalStorageUri/remote-artifacts/{id}.zip`. Cast / browse picks extract on demand; HTML previews skip extraction entirely and serve each request by inflating one entry through JSZip. Result: O(1) once the download finishes — no waiting on every entry to land on disk. |
 | **Cancellable downloads & extractions** | Both progress notifications expose a cancel control. Cancelling a download aborts the HTTP body read; cancelling an extraction leaves partial state behind so a future retry resumes where you stopped (no re-decompression). |
+| **Pending PR runs stay actionable** | Paste a PR before artifacts are ready and the Explorer shows active GitHub Actions runs plus live job statuses instead of failing. Pick a run/job, wait for artifacts, then continue into the same CI-run artifact picker. |
 | **Stop previews from anywhere** | While a preview server is running you get a right-side **`$(debug-stop) HTML preview`** status bar item — click it, run **`GitHub Artifacts: Stop HTML preview`**, or press `Ctrl+C` inside the preview's terminal. The command opens a keyboard-friendly picker with Stop / Keep options, and multiple concurrent previews add "Stop all / pick one" choices. |
 | **Recents that actually work** | Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan zips and dirs cleaned at activation. |
 | **Live download & extract progress** | Real percentages (`12.4 MB of 87.0 MB · 14%`, `12,403 / 27,718 files · 184.2 MB · 44%`), ~10 updates/sec, with rotating dev-humor quips on long downloads. |
@@ -128,7 +129,7 @@ The very first time you point at a private (or even public) GitHub PR/run, VS Co
 <details>
 <summary><b>"My PR has no artifacts to pick"</b></summary>
 
-The dropdown only shows artifacts produced by the PR's most recent successful workflow run. If your CI didn't upload anything (no `actions/upload-artifact` step, or the run is still in progress), there's nothing to download. Pasting an Actions run URL directly lets you target a specific run.
+The dropdown shows artifacts produced by the PR's most recent completed workflow run with artifacts. If none are ready yet, the Explorer switches to a live picker of active GitHub Actions runs and job statuses. Pick one to wait for artifacts, then continue into the artifact picker. External CI providers are not shown in that live picker.
 
 </details>
 
@@ -173,8 +174,8 @@ Click the `$(file-code)` icon in the editor title bar of a `.cast` viewer (or ru
 
 | Command | Description |
 |---|---|
-| `GitHub Artifacts: Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. |
-| `GitHub Artifacts: Open from CI Run` | Skip the PR step entirely; paste a workflow-run URL. |
+| `GitHub Artifacts: Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. PRs with pending Actions runs show live job status and can wait until artifacts are ready. |
+| `GitHub Artifacts: Open from CI Run` | Skip the PR step entirely; paste a workflow-run URL. If artifacts are not ready, wait for them and continue when available. |
 | `GitHub Artifacts: Stop HTML preview` | Stop one or all running HTML preview servers (also reachable via the status bar item, or `Ctrl+C` inside the preview's terminal). |
 | `GitHub Artifacts: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
 | `GitHub Artifacts: Open as Text` | Open the active `.cast` recording as raw NDJSON in a text editor (also exposed as a button in the editor title bar of the player). |

@@ -43,6 +43,17 @@ export interface WorkflowRunSummary {
     readonly status: string | null;
     readonly htmlUrl: string;
     readonly createdAt: string;
+    readonly updatedAt?: string;
+}
+
+export interface WorkflowJobSummary {
+    readonly id: number;
+    readonly name: string;
+    readonly status: string | null;
+    readonly conclusion: string | null;
+    readonly htmlUrl: string;
+    readonly startedAt: string | null;
+    readonly completedAt: string | null;
 }
 
 /**
@@ -138,14 +149,29 @@ export async function getPullRequestHead(
     };
 }
 
+export interface ListWorkflowRunsForShaOptions {
+    readonly status?: string;
+    readonly perPage?: number;
+}
+
 /**
- * Lists completed workflow runs for a specific head SHA, newest first.
+ * Lists workflow runs for a specific head SHA, newest first. Pass a GitHub
+ * Actions `status` value to constrain the API query; omit it to fetch every
+ * status and filter client-side.
  */
-async function listCompletedRunsForSha(
+export async function listWorkflowRunsForSha(
     token: string,
-    coords: PullRequestCoordinates,
-    headSha: string
+    repo: RepoCoordinates,
+    headSha: string,
+    options: ListWorkflowRunsForShaOptions = {}
 ): Promise<WorkflowRunSummary[]> {
+    const params = new URLSearchParams({
+        head_sha: headSha,
+        per_page: String(options.perPage ?? 50),
+    });
+    if (options.status) {
+        params.set("status", options.status);
+    }
     const data = await githubFetch<{
         workflow_runs: Array<{
             id: number;
@@ -159,10 +185,11 @@ async function listCompletedRunsForSha(
             status: string | null;
             html_url: string;
             created_at: string;
+            updated_at?: string;
         }>;
     }>(
         token,
-        `${repoApiPath(coords)}/actions/runs?head_sha=${encodeURIComponent(headSha)}&status=completed&per_page=50`
+        `${repoApiPath(repo)}/actions/runs?${params.toString()}`
     );
     return data.workflow_runs.map(mapWorkflowRun);
 }
@@ -179,6 +206,7 @@ function mapWorkflowRun(r: {
     status: string | null;
     html_url: string;
     created_at: string;
+    updated_at?: string;
 }): WorkflowRunSummary {
     return {
         id: r.id,
@@ -191,6 +219,7 @@ function mapWorkflowRun(r: {
         status: r.status,
         htmlUrl: r.html_url,
         createdAt: r.created_at,
+        updatedAt: r.updated_at,
     };
 }
 
@@ -214,11 +243,70 @@ export async function getWorkflowRunById(
         status: string | null;
         html_url: string;
         created_at: string;
+        updated_at?: string;
     }>(
         token,
         `${repoApiPath(repo)}/actions/runs/${encodeURIComponent(String(runId))}`
     );
     return mapWorkflowRun(r);
+}
+
+function mapWorkflowJob(j: {
+    id: number;
+    name: string;
+    status: string | null;
+    conclusion: string | null;
+    html_url: string;
+    started_at: string | null;
+    completed_at: string | null;
+}): WorkflowJobSummary {
+    return {
+        id: j.id,
+        name: j.name,
+        status: j.status,
+        conclusion: j.conclusion,
+        htmlUrl: j.html_url,
+        startedAt: j.started_at,
+        completedAt: j.completed_at,
+    };
+}
+
+/**
+ * Lists jobs for a workflow run. Paginates so large matrix runs show every
+ * job status in pending-run pickers and wait progress messages.
+ */
+export async function listJobsForRun(
+    token: string,
+    repo: RepoCoordinates,
+    runId: number
+): Promise<WorkflowJobSummary[]> {
+    const collected: WorkflowJobSummary[] = [];
+    const PER_PAGE = 100;
+    const MAX_PAGES = 20;
+    let page = 1;
+    while (page <= MAX_PAGES) {
+        const data = await githubFetch<{
+            total_count: number;
+            jobs: Array<{
+                id: number;
+                name: string;
+                status: string | null;
+                conclusion: string | null;
+                html_url: string;
+                started_at: string | null;
+                completed_at: string | null;
+            }>;
+        }>(
+            token,
+            `${repoApiPath(repo)}/actions/runs/${encodeURIComponent(String(runId))}/jobs?filter=latest&per_page=${PER_PAGE}&page=${page}`
+        );
+        collected.push(...data.jobs.map(mapWorkflowJob));
+        if (data.jobs.length < PER_PAGE || collected.length >= data.total_count) {
+            break;
+        }
+        page++;
+    }
+    return collected;
 }
 
 /**
@@ -274,7 +362,7 @@ export async function listArtifactsForRun(
 }
 
 /**
- * Finds the most recent completed workflow run for the PR's head SHA that has
+ * Finds the most recent completed workflow run for the head SHA that has
  * at least one non-expired artifact. Returns the run summary and its
  * artifacts, or undefined if no such run exists.
  *
@@ -283,15 +371,17 @@ export async function listArtifactsForRun(
  */
 export async function findRunWithArtifacts(
     token: string,
-    coords: PullRequestCoordinates,
+    repo: RepoCoordinates,
     headSha: string
 ): Promise<
     | { run: WorkflowRunSummary; artifacts: WorkflowArtifact[] }
     | undefined
 > {
-    const runs = await listCompletedRunsForSha(token, coords, headSha);
+    const runs = await listWorkflowRunsForSha(token, repo, headSha, {
+        status: "completed",
+    });
     for (const run of runs) {
-        const artifacts = await listArtifactsForRun(token, coords, run.id);
+        const artifacts = await listArtifactsForRun(token, repo, run.id);
         if (artifacts.length > 0) {
             return { run, artifacts };
         }
