@@ -1,42 +1,75 @@
 import * as vscode from "vscode";
+import { showQuickPick } from "./artifact-handlers/quickpick.js";
 import { previewRegistry, type ActivePreview } from "./preview-registry.js";
 
 interface PreviewQuickPickItem extends vscode.QuickPickItem {
-    readonly action: "stop-one" | "stop-all";
+    readonly action: "stop-one" | "stop-all" | "noop";
     readonly preview?: ActivePreview;
 }
 
 /**
  * Implementation of `asciinema.stopHtmlPreview`.
  *
- * Zero previews → info toast.
- * One preview → confirm + stop straight away.
- * 2+ previews → QuickPick with `$(close-all)  Stop all` + one row per preview.
+ * Always uses a QuickPick step so the flow stays in the command palette:
+ * zero previews → no-op item, one preview → stop/keep options, multiple
+ * previews → Stop all + one row per preview.
  */
 export async function stopHtmlPreviewCommand(): Promise<void> {
     const previews = previewRegistry.list();
-    if (previews.length === 0) {
-        await vscode.window.showInformationMessage(
-            "No HTML previews are currently running."
-        );
+
+    const picked = await showQuickPick(buildStopPreviewItems(previews), {
+        title: "GitHub Artifacts — Stop HTML preview",
+        placeholder: stopPreviewPlaceholder(previews.length),
+        step: 1,
+        totalSteps: 1,
+    });
+    if (!picked || picked.action === "noop") {
         return;
+    }
+    if (picked.action === "stop-all") {
+        await previewRegistry.stopAll();
+        return;
+    }
+    if (picked.preview) {
+        await picked.preview.dispose();
+    }
+}
+
+function buildStopPreviewItems(
+    previews: readonly ActivePreview[]
+): PreviewQuickPickItem[] {
+    if (previews.length === 0) {
+        return [
+            {
+                label: "$(circle-slash)  No HTML previews running",
+                description: "Nothing to stop",
+                detail:
+                    "Start an HTML preview from a GitHub artifact, then run this command to stop it.",
+                action: "noop",
+            },
+        ];
     }
 
     if (previews.length === 1) {
         const only = previews[0];
-        const confirm = await vscode.window.showWarningMessage(
-            `Stop HTML preview for "${only.artifactName}" (${only.url})?`,
-            { modal: false },
-            "Stop"
-        );
-        if (confirm !== "Stop") {
-            return;
-        }
-        await only.dispose();
-        return;
+        return [
+            {
+                label: "$(debug-stop)  Stop HTML preview",
+                description: only.artifactName,
+                detail: `${only.url} · started ${formatAge(only.startedAt)}`,
+                action: "stop-one",
+                preview: only,
+            },
+            {
+                label: "$(debug-continue)  Keep preview running",
+                description: "No changes",
+                detail: "Dismisses this picker without stopping the server.",
+                action: "noop",
+            },
+        ];
     }
 
-    const items: PreviewQuickPickItem[] = [
+    return [
         {
             label: "$(close-all)  Stop all",
             description: `${previews.length} ${
@@ -58,22 +91,16 @@ export async function stopHtmlPreviewCommand(): Promise<void> {
             preview: p,
         })),
     ];
+}
 
-    const picked = await vscode.window.showQuickPick(items, {
-        title: "GitHub Artifacts — Stop HTML preview",
-        placeHolder: "Pick a preview to stop, or pick Stop all…",
-        ignoreFocusOut: true,
-    });
-    if (!picked) {
-        return;
+function stopPreviewPlaceholder(previewCount: number): string {
+    if (previewCount === 0) {
+        return "No HTML previews are currently running";
     }
-    if (picked.action === "stop-all") {
-        await previewRegistry.stopAll();
-        return;
+    if (previewCount === 1) {
+        return "Press Enter to stop the preview, or pick Keep preview running";
     }
-    if (picked.preview) {
-        await picked.preview.dispose();
-    }
+    return "Pick a preview to stop, or pick Stop all";
 }
 
 /**

@@ -3,6 +3,8 @@ import * as vscode from "vscode";
 export interface QuickPickShowOptions {
     readonly title: string;
     readonly placeholder: string;
+    readonly step?: number;
+    readonly totalSteps?: number;
     readonly buttons?: readonly vscode.QuickInputButton[];
     /** Invoked when any item button is triggered. */
     readonly onTriggerItemButton?: () => void;
@@ -21,6 +23,8 @@ export function showQuickPick<T extends vscode.QuickPickItem>(
         const qp = vscode.window.createQuickPick<T>();
         qp.title = options.title;
         qp.placeholder = options.placeholder;
+        qp.step = options.step;
+        qp.totalSteps = options.totalSteps;
         qp.items = items;
         qp.matchOnDescription = true;
         qp.matchOnDetail = true;
