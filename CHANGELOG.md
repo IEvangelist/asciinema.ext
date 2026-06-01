@@ -4,6 +4,20 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-06-01
+
+### Changed — Keyboard-first artifact and preview UX
+
+- **Stopping HTML previews now stays in the command-palette flow.** `GitHub Artifacts: Stop HTML preview` uses QuickPick steps for no-preview, single-preview, and multi-preview cases instead of popping a modal notice, with Stop / Keep and Stop all / pick-one paths that keep hands on the keyboard.
+- **PRs with pending CI no longer fail immediately.** If a pasted PR has no completed workflow run with artifacts yet, the Explorer opens a live QuickPick showing active or just-completed GitHub Actions runs for the PR commit plus their job statuses.
+- **Pending run selections tie into the CI-run artifact flow.** Pick a run or job row to wait for artifacts, see live progress while jobs advance, then choose **Continue with this run** to enter the existing artifact picker once artifacts appear.
+- **Recently completed runs stay selectable briefly.** Runs that finish while the picker is open remain visible long enough to choose and refresh artifacts, avoiding a disappearing-row race at the end of CI.
+
+### Internal
+
+- Extracted a shared Actions-run flow used by both direct run URLs and PR-selected pending runs.
+- Added GitHub Actions job listing support and pure run/job state helpers with tests.
+
 ## [0.6.4] - 2026-05-20
 
 ### Added — VS Code deep links
