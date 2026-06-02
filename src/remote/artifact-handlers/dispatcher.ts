@@ -28,6 +28,7 @@ const HANDLERS: readonly ArtifactHandler[] = [castHandler, staticSiteHandler];
 const DEFAULT_MAX_EXTRACTED_MB = 2048;
 const DEFAULT_MAX_ENTRY_COUNT = 250_000;
 const DEFAULT_MAX_ENTRY_SIZE_MB = 500;
+const LIMIT_HEADROOM_MULTIPLIER = 1.2;
 
 interface DispatchItem extends vscode.QuickPickItem {
     readonly handler?: ArtifactHandler;
@@ -349,8 +350,8 @@ async function handleZipLimitError(
     const capRaw = err.cap ?? 0;
     const observedRaw = err.observed ?? capRaw;
     const suggestedRaw = Math.max(
-        capRaw * 2,
-        Math.ceil(observedRaw * 1.25),
+        Math.ceil(observedRaw * LIMIT_HEADROOM_MULTIPLIER),
+        observedRaw + 1,
         capRaw + 1
     );
     const currentDisp = meta.toUnits(capRaw);
@@ -361,7 +362,7 @@ async function handleZipLimitError(
         [
             {
                 label: `$(arrow-up)  Raise to ${suggestedDisp.toLocaleString()} ${meta.unit} and retry`,
-                description: `Current cap: ${currentDisp.toLocaleString()} ${meta.unit}`,
+                description: "Recommended: 20% above this artifact",
                 detail: `Observed ${observedDisp.toLocaleString()} ${meta.unit}; setting: asciinema.${meta.settingKey}`,
                 value: "raise",
             },

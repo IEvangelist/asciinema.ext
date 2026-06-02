@@ -4,6 +4,13 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-06-02
+
+### Changed — Friendlier size-limit recovery
+
+- **Oversized artifact downloads now offer three explicit choices.** The recommended path raises `asciinema.maxArtifactSizeMB` to 20% above the selected artifact size and then downloads it; **Download this once** uses the same temporary headroom without changing settings; **Do not download** exits cleanly.
+- **Extraction cap recovery now uses the same 20% headroom rule.** Raise-and-retry suggestions for entry count, per-entry size, and total extracted size are based on 20% above the observed artifact requirement instead of a much larger jump.
+
 ## [0.6.6] - 2026-06-02
 
 ### Changed — Command-palette-first prompts

@@ -32,6 +32,7 @@ import {
 const DEFAULT_MAX_ARTIFACT_MB = 250;
 const DEFAULT_MAX_ENTRY_COUNT = 250_000;
 const HARD_LIMIT_BYTES = 4 * 1024 * 1024 * 1024;
+const LIMIT_HEADROOM_MULTIPLIER = 1.2;
 
 function getConfiguredMaxArtifactBytes(): number {
     const mb = vscode.workspace
@@ -94,17 +95,14 @@ export async function pickAndOpenArtifact(
     const configuredMaxBytes = getConfiguredMaxArtifactBytes();
     let effectiveMaxBytes = configuredMaxBytes;
     if (chosenArtifact.sizeInBytes > configuredMaxBytes) {
-        const confirmed = await confirmOversizeDownload(
+        const selectedMaxBytes = await pickOversizeDownloadLimit(
             chosenArtifact.sizeInBytes,
             configuredMaxBytes
         );
-        if (!confirmed) {
+        if (selectedMaxBytes === undefined) {
             return;
         }
-        effectiveMaxBytes = Math.min(
-            Math.max(chosenArtifact.sizeInBytes * 2, configuredMaxBytes),
-            HARD_LIMIT_BYTES
-        );
+        effectiveMaxBytes = selectedMaxBytes;
     }
 
     let zipBytes: Uint8Array | undefined;
@@ -224,23 +222,30 @@ export async function pickAndOpenArtifact(
     await dispatchHandler(handlerCtx);
 }
 
-async function confirmOversizeDownload(
+async function pickOversizeDownloadLimit(
     actualBytes: number,
     configuredBytes: number
-): Promise<boolean> {
+): Promise<number | undefined> {
     const actualMB = formatMB(actualBytes);
     const configuredMB = formatMB(configuredBytes);
     const overBy = formatMB(actualBytes - configuredBytes);
+    const recommended = recommendedLimit(actualBytes);
     const choice = await pickPaletteAction(
         [
             {
-                label: "$(cloud-download)  Download anyway",
-                description: `${actualMB} MB artifact · ${overBy} MB over limit`,
-                detail: `Configured limit: ${configuredMB} MB (asciinema.maxArtifactSizeMB)`,
-                value: "download",
+                label: `$(arrow-up)  Raise limit to ${recommended.mb.toLocaleString()} MB and download`,
+                description: "Recommended: 20% above this artifact",
+                detail: `Updates asciinema.maxArtifactSizeMB from ${configuredMB} MB to ${recommended.mb.toLocaleString()} MB.`,
+                value: "raise",
             },
             {
-                label: "$(close)  Cancel",
+                label: "$(cloud-download)  Download this once",
+                description: `${actualMB} MB artifact · ${overBy} MB over limit`,
+                detail: `Temporarily allows up to ${recommended.mb.toLocaleString()} MB; setting stays ${configuredMB} MB.`,
+                value: "once",
+            },
+            {
+                label: "$(close)  Do not download",
                 value: "cancel",
             },
         ],
@@ -249,12 +254,33 @@ async function confirmOversizeDownload(
             message: `This artifact is ${actualMB} MB, which is ${overBy} MB over your configured limit of ${configuredMB} MB.`,
         }
     );
-    return choice === "download";
+    if (choice === "raise") {
+        await vscode.workspace
+            .getConfiguration("asciinema")
+            .update(
+                "maxArtifactSizeMB",
+                recommended.mb,
+                vscode.ConfigurationTarget.Global
+            );
+        return recommended.bytes;
+    }
+    if (choice === "once") {
+        return recommended.bytes;
+    }
+    return undefined;
 }
 
 function formatMB(bytes: number): string {
     const mb = bytes / 1024 / 1024;
     return mb >= 10 ? mb.toFixed(0) : mb.toFixed(1);
+}
+
+function recommendedLimit(bytes: number): { readonly bytes: number; readonly mb: number } {
+    const mb = Math.min(
+        Math.ceil((bytes * LIMIT_HEADROOM_MULTIPLIER) / 1024 / 1024),
+        HARD_LIMIT_BYTES / 1024 / 1024
+    );
+    return { mb, bytes: Math.round(mb * 1024 * 1024) };
 }
 
 interface ArtifactQuickPickItem extends vscode.QuickPickItem {
