@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { parseDeepLink } from "./deep-link.js";
 import { openFromPullRequestCommand } from "./open-from-pull-request.js";
+import { showPaletteNotice } from "./quick-input.js";
 
 export function registerDeepLinkUriHandler(
     context: vscode.ExtensionContext
@@ -9,8 +10,10 @@ export function registerDeepLinkUriHandler(
         async handleUri(uri: vscode.Uri): Promise<void> {
             const parsed = parseDeepLink(uri.path, uri.query);
             if (!parsed.ok) {
-                await vscode.window.showErrorMessage(
-                    `GitHub Artifacts — ${parsed.message}`
+                await showPaletteNotice(
+                    "GitHub Artifacts — deep link",
+                    `GitHub Artifacts — ${parsed.message}`,
+                    "error"
                 );
                 return;
             }
@@ -21,8 +24,10 @@ export function registerDeepLinkUriHandler(
                 });
             } catch (err) {
                 console.error("[asciinema] deep link failed:", err);
-                await vscode.window.showErrorMessage(
-                    `GitHub Artifacts — deep link failed: ${(err as Error)?.message ?? String(err)}`
+                await showPaletteNotice(
+                    "GitHub Artifacts — deep link failed",
+                    `GitHub Artifacts — deep link failed: ${(err as Error)?.message ?? String(err)}`,
+                    "error"
                 );
             }
         },

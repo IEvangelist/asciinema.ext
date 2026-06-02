@@ -16,6 +16,11 @@ import { isAbortError, type DiskExtractionLimits } from "../zip-extract.js";
 import { ZipLimitError } from "../artifact-zip.js";
 import { buildProgressMessage } from "../progress-format.js";
 import { getExtractionQuip } from "../download-quips.js";
+import {
+    pickPaletteAction,
+    showPaletteNotice,
+    withPaletteProgress,
+} from "../quick-input.js";
 import * as fs from "node:fs/promises";
 
 const HANDLERS: readonly ArtifactHandler[] = [castHandler, staticSiteHandler];
@@ -162,8 +167,10 @@ async function ensureExtracted(ctx: HandlerContext): Promise<void> {
         const buf = await fs.readFile(zipPath);
         zipBytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     } catch (err) {
-        await vscode.window.showErrorMessage(
-            `Couldn't read cached artifact zip: ${(err as Error).message}`
+        await showPaletteNotice(
+            "GitHub Artifacts — cached zip failed",
+            `Couldn't read cached artifact zip: ${(err as Error).message}`,
+            "error"
         );
         return;
     }
@@ -201,8 +208,10 @@ async function ensureExtracted(ctx: HandlerContext): Promise<void> {
                 attempt++;
                 continue;
             }
-            await vscode.window.showErrorMessage(
-                `Couldn't extract artifact zip: ${(err as Error).message}`
+            await showPaletteNotice(
+                "GitHub Artifacts — extraction failed",
+                `Couldn't extract artifact zip: ${(err as Error).message}`,
+                "error"
             );
             return;
         }
@@ -215,13 +224,18 @@ async function runExtractWithProgress(
     limits: DiskExtractionLimits,
     resume: boolean
 ): Promise<Awaited<ReturnType<typeof extractArtifactToDisk>> | undefined> {
-    return await vscode.window.withProgress(
+    return await withPaletteProgress(
         {
-            location: vscode.ProgressLocation.Notification,
             title: resume
                 ? `GitHub Artifacts — Resuming extraction "${ctx.artifact.name}"`
                 : `GitHub Artifacts — Extracting artifact "${ctx.artifact.name}"`,
+            placeholder: resume
+                ? "Resuming artifact extraction..."
+                : "Extracting artifact files...",
             cancellable: true,
+            initialMessage: resume
+                ? "Checking existing extracted files"
+                : "Preparing extraction",
         },
         async (progress, token) => {
             const controller = new AbortController();
@@ -324,7 +338,11 @@ async function handleZipLimitError(
 ): Promise<DiskExtractionLimits | undefined> {
     const meta = ZIP_LIMIT_META[err.kind];
     if (!meta) {
-        await vscode.window.showErrorMessage(err.message);
+        await showPaletteNotice(
+            "GitHub Artifacts — extraction limit",
+            err.message,
+            "error"
+        );
         return undefined;
     }
 
@@ -339,25 +357,41 @@ async function handleZipLimitError(
     const suggestedDisp = meta.toUnits(suggestedRaw);
     const observedDisp = meta.toUnits(observedRaw);
 
-    const increaseAndRetry = `Raise to ${suggestedDisp.toLocaleString()} ${meta.unit} & Retry`;
-    const customRetry = `Set custom value…`;
-    const openSettings = "Open Settings";
-    const cancel = "Cancel";
-
-    const choice = await vscode.window.showErrorMessage(
-        `${err.message}\n\nObserved ${observedDisp.toLocaleString()} ${meta.unit}; current cap ${currentDisp.toLocaleString()} ${meta.unit} (\`asciinema.${meta.settingKey}\`).`,
-        { modal: false },
-        increaseAndRetry,
-        customRetry,
-        openSettings,
-        cancel
+    const choice = await pickPaletteAction(
+        [
+            {
+                label: `$(arrow-up)  Raise to ${suggestedDisp.toLocaleString()} ${meta.unit} and retry`,
+                description: `Current cap: ${currentDisp.toLocaleString()} ${meta.unit}`,
+                detail: `Observed ${observedDisp.toLocaleString()} ${meta.unit}; setting: asciinema.${meta.settingKey}`,
+                value: "raise",
+            },
+            {
+                label: "$(edit)  Set custom value...",
+                description: `Enter a new ${meta.unit} cap`,
+                value: "custom",
+            },
+            {
+                label: "$(settings-gear)  Open Settings",
+                description: `asciinema.${meta.settingKey}`,
+                value: "settings",
+            },
+            {
+                label: "$(close)  Cancel",
+                value: "cancel",
+            },
+        ],
+        {
+            title: `GitHub Artifacts — ${meta.settingLabel}`,
+            message: err.message,
+            placeholder: `Observed ${observedDisp.toLocaleString()} ${meta.unit}; current cap ${currentDisp.toLocaleString()} ${meta.unit}`,
+        }
     );
 
-    if (!choice || choice === cancel) {
+    if (!choice || choice === "cancel") {
         return undefined;
     }
 
-    if (choice === openSettings) {
+    if (choice === "settings") {
         await vscode.commands.executeCommand(
             "workbench.action.openSettings",
             `@id:asciinema.${meta.settingKey}`
@@ -366,7 +400,7 @@ async function handleZipLimitError(
     }
 
     let newRaw = suggestedRaw;
-    if (choice === customRetry) {
+    if (choice === "custom") {
         const input = await vscode.window.showInputBox({
             title: `GitHub Artifacts — ${meta.settingLabel}`,
             prompt: `Enter a new cap in ${meta.unit}. Current: ${currentDisp.toLocaleString()}. Observed: ${observedDisp.toLocaleString()}.`,
@@ -508,8 +542,10 @@ async function revealExtractedInExplorer(ctx: HandlerContext): Promise<void> {
                 return;
         }
     } catch (err) {
-        await vscode.window.showErrorMessage(
-            `Couldn't open ${dir.fsPath}: ${(err as Error).message}`
+        await showPaletteNotice(
+            "GitHub Artifacts — open folder failed",
+            `Couldn't open ${dir.fsPath}: ${(err as Error).message}`,
+            "error"
         );
     }
 }

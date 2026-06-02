@@ -36,6 +36,12 @@ import {
 } from "./download-and-open.js";
 import { runActionsRunFlow } from "./actions-run-flow.js";
 import { pickActiveWorkflowRunForPullRequest } from "./pending-pr-runs.js";
+import {
+    confirmPalette,
+    pickPaletteAction,
+    showPaletteNotice,
+    withPaletteProgress,
+} from "./quick-input.js";
 
 /**
  * Command implementation for `asciinema.openFromPullRequest`.
@@ -60,6 +66,11 @@ export async function openFromPullRequestCommand(
     }
     if (choice.kind === "recent") {
         await openRecent(context, choice.entry);
+        return;
+    }
+    if (choice.kind === "clear-all-recents") {
+        await clearAllRecentsFromPicker();
+        await openFromPullRequestCommand(context);
         return;
     }
 
@@ -93,14 +104,17 @@ export async function openFromPullRequestCommand(
         await runActionsRunFlow(context, runCoords);
         return;
     }
-    await vscode.window.showErrorMessage(
-        "That doesn't look like a GitHub PR or Actions run URL."
+    await showPaletteNotice(
+        "GitHub Artifacts — URL not recognized",
+        "That doesn't look like a GitHub PR or Actions run URL.",
+        "error"
     );
 }
 
 type StartingPointChoice =
     | { kind: "new"; prefilledUrl?: string }
-    | { kind: "recent"; entry: RecentArtifact };
+    | { kind: "recent"; entry: RecentArtifact }
+    | { kind: "clear-all-recents" };
 
 interface StartingPointItem extends vscode.QuickPickItem {
     readonly choice?: StartingPointChoice;
@@ -180,6 +194,11 @@ function buildStartingPointItems(
             kind: vscode.QuickPickItemKind.Separator,
         });
         items.push({
+            label: "$(clear-all)  Forget all recent artifacts",
+            description: "Delete cached files for every recent entry",
+            choice: { kind: "clear-all-recents" },
+        });
+        items.push({
             label: "$(cloud-download)  Download from a PR or Actions run…",
             description: "Paste a PR or workflow-run URL",
             choice: { kind: "new" },
@@ -234,18 +253,8 @@ async function pickStartingPoint(
                 recent = await listRecent();
                 refresh();
             } else if (btn === CLEAR_ALL_BTN) {
-                const confirm = await vscode.window.showWarningMessage(
-                    `Forget all ${recent.length} recent artifacts? Their cached files will be deleted.`,
-                    { modal: true },
-                    "Forget All"
-                );
-                if (confirm === "Forget All") {
-                    for (const e of recent) {
-                        await removeRecent(e.key);
-                    }
-                    recent = [];
-                    refresh();
-                }
+                finish({ kind: "clear-all-recents" });
+                qp.hide();
             }
         });
         qp.onDidTriggerItemButton(async (e) => {
@@ -268,9 +277,9 @@ async function pickStartingPoint(
         qp.onDidAccept(() => {
             const picked = qp.selectedItems[0];
             const typed = qp.value.trim();
-            qp.hide();
             if (picked?.entry) {
                 finish({ kind: "recent", entry: picked.entry });
+                qp.hide();
                 return;
             }
             if (picked?.choice) {
@@ -283,6 +292,7 @@ async function pickStartingPoint(
                 } else {
                     finish(picked.choice);
                 }
+                qp.hide();
                 return;
             }
             // No item matched — if the typed value parses as a known URL,
@@ -292,9 +302,11 @@ async function pickStartingPoint(
                 (parsePullRequestUrl(typed) || parseActionsRunUrl(typed))
             ) {
                 finish({ kind: "new", prefilledUrl: typed });
+                qp.hide();
                 return;
             }
             finish(undefined);
+            qp.hide();
         });
         qp.onDidHide(() => {
             qp.dispose();
@@ -351,10 +363,11 @@ async function runPrFlow(
 
     let head: Awaited<ReturnType<typeof getPullRequestHead>>;
     try {
-        head = await vscode.window.withProgress(
+        head = await withPaletteProgress(
             {
-                location: vscode.ProgressLocation.Notification,
                 title: `GitHub Artifacts — Looking up ${coords.owner}/${coords.repo}#${coords.number}`,
+                placeholder: "Looking up pull request metadata...",
+                initialMessage: "Resolving PR head commit",
             },
             () => getPullRequestHead(token, coords)
         );
@@ -372,10 +385,11 @@ async function runPrFlow(
         | { run: WorkflowRunSummary; artifacts: WorkflowArtifact[] }
         | undefined;
     try {
-        runAndArtifacts = await vscode.window.withProgress(
+        runAndArtifacts = await withPaletteProgress(
             {
-                location: vscode.ProgressLocation.Notification,
                 title: "GitHub Artifacts — Finding CI run with artifacts",
+                placeholder: "Checking completed workflow runs...",
+                initialMessage: "Looking for non-expired artifacts",
             },
             () => findRunWithArtifacts(token, coords, head.sha)
         );
@@ -438,14 +452,53 @@ async function acquireSession(): Promise<
     if (session) {
         return session;
     }
-    const choice = await vscode.window.showErrorMessage(
-        "GitHub sign-in is required to download CI artifacts.",
-        "Sign in"
+    const choice = await pickPaletteAction(
+        [
+            {
+                label: "$(sign-in)  Sign in",
+                description: "Use VS Code's GitHub authentication",
+                value: "sign-in",
+            },
+            {
+                label: "$(close)  Cancel",
+                value: "cancel",
+            },
+        ],
+        {
+            title: "GitHub Artifacts — sign in required",
+            message: "GitHub sign-in is required to download CI artifacts.",
+        }
     );
-    if (choice === "Sign in") {
+    if (choice === "sign-in") {
         return await getGitHubSession(true);
     }
     return undefined;
+}
+
+async function clearAllRecentsFromPicker(): Promise<void> {
+    const recent = await listRecent();
+    if (recent.length === 0) {
+        await showPaletteNotice(
+            "GitHub Artifacts — recents",
+            "No recent artifacts to forget."
+        );
+        return;
+    }
+    const confirmed = await confirmPalette(
+        "GitHub Artifacts — forget all recents",
+        `Forget all ${recent.length} recent artifacts? Their cached files will be deleted.`,
+        "Forget All"
+    );
+    if (!confirmed) {
+        return;
+    }
+    for (const e of recent) {
+        await removeRecent(e.key);
+    }
+    await showPaletteNotice(
+        "GitHub Artifacts — recents cleared",
+        `Forgot ${recent.length} recent ${recent.length === 1 ? "artifact" : "artifacts"}.`
+    );
 }
 
 // Re-exports preserved so existing imports continue to resolve.

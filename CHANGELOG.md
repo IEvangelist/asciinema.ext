@@ -4,6 +4,19 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-06-02
+
+### Changed — Command-palette-first prompts
+
+- **Moved remaining GitHub Artifacts prompts into QuickPick surfaces.** Command failures, deep-link failures, GitHub API retry/open-browser choices, sign-in prompts, cache cleanup confirmations/results, and artifact size confirmations now stay in the keyboard-friendly picker flow instead of native message popups.
+- **Moved lookup/download/wait/extract progress out of notification popups.** Long-running artifact operations now show busy QuickPick progress rows, including live download/extraction calculations and cancellable operations with a keyboard-selectable Cancel row.
+- **Moved recoverable cap-breach calculations into the picker.** Entry-count, single-entry-size, and total-extracted-size recovery now shows observed/current/suggested values inline with Raise & Retry, Custom value, and Open Settings actions.
+- **Made recents cleanup picker-safe.** The "forget all recents" path no longer opens a nested native confirmation from inside the recents picker; it exits to a dedicated QuickPick confirmation and then returns to the Explorer.
+
+### Internal
+
+- Added shared QuickInput helpers for action prompts, notices, confirmations, and cancellable progress.
+
 ## [0.6.5] - 2026-06-01
 
 ### Changed — Keyboard-first artifact and preview UX

@@ -101,12 +101,12 @@ Open any `.cast` file and it plays — right inside an editor tab.
 | Behavior | How it works |
 | --- | --- |
 | **HTML previews stream straight from the zip** | Downloaded artifacts park as `globalStorageUri/remote-artifacts/{id}.zip`. Cast / browse picks extract on demand; HTML previews skip extraction entirely and serve each request by inflating one entry through JSZip. Result: O(1) once the download finishes — no waiting on every entry to land on disk. |
-| **Cancellable downloads & extractions** | Both progress notifications expose a cancel control. Cancelling a download aborts the HTTP body read; cancelling an extraction leaves partial state behind so a future retry resumes where you stopped (no re-decompression). |
+| **Cancellable downloads & extractions** | Download, lookup, wait, and extraction progress stays in keyboard-friendly QuickPick surfaces with a cancel row when cancellation is supported. Cancelling a download aborts the HTTP body read; cancelling an extraction leaves partial state behind so a future retry resumes where you stopped (no re-decompression). |
 | **Pending PR runs stay actionable** | Paste a PR before artifacts are ready and the Explorer shows active GitHub Actions runs plus live job statuses instead of failing. Pick a run/job, wait for artifacts, then continue into the same CI-run artifact picker. |
 | **Stop previews from anywhere** | While a preview server is running you get a right-side **`$(debug-stop) HTML preview`** status bar item — click it, run **`GitHub Artifacts: Stop HTML preview`**, or press `Ctrl+C` inside the preview's terminal. The command opens a keyboard-friendly picker with Stop / Keep options, and multiple concurrent previews add "Stop all / pick one" choices. |
 | **Recents that actually work** | Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan zips and dirs cleaned at activation. |
-| **Live download & extract progress** | Real percentages (`12.4 MB of 87.0 MB · 14%`, `12,403 / 27,718 files · 184.2 MB · 44%`), ~10 updates/sec, with rotating dev-humor quips on long downloads. |
-| **Recoverable cap-breaches** | Hit `maxArtifactEntryCount` / `maxArtifactExtractedMB` / etc. and you get a notification with **Raise & Retry / Custom value / Open Settings**. Retries resume mid-extraction (stat-based skip — no re-decompression). |
+| **Live download & extract progress** | Real percentages (`12.4 MB of 87.0 MB · 14%`, `12,403 / 27,718 files · 184.2 MB · 44%`), ~10 updates/sec, with rotating dev-humor quips on long downloads — shown in the picker instead of popup notifications. |
+| **Recoverable cap-breaches** | Hit `maxArtifactEntryCount` / `maxArtifactExtractedMB` / etc. and the picker offers **Raise & Retry / Custom value / Open Settings** with the observed/current cap calculations inline. Retries resume mid-extraction (stat-based skip — no re-decompression). |
 
 ---
 

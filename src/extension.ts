@@ -17,6 +17,7 @@ import {
 } from "./remote/stop-preview-command.js";
 import { previewRegistry } from "./remote/preview-registry.js";
 import { registerDeepLinkUriHandler } from "./remote/deep-link-uri-handler.js";
+import { showPaletteNotice } from "./remote/quick-input.js";
 
 let extensionContext: vscode.ExtensionContext | undefined;
 
@@ -77,8 +78,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         "[asciinema] openFromPullRequest failed:",
                         err
                     );
-                    await vscode.window.showErrorMessage(
-                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
+                    await showPaletteNotice(
+                        "GitHub Artifacts — command failed",
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`,
+                        "error"
                     );
                 }
             }
@@ -99,8 +102,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         "[asciinema] openFromActionsRun failed:",
                         err
                     );
-                    await vscode.window.showErrorMessage(
-                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
+                    await showPaletteNotice(
+                        "GitHub Artifacts — command failed",
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`,
+                        "error"
                     );
                 }
             }
@@ -113,8 +118,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 await clearCacheCommand(context);
             } catch (err) {
                 console.error("[asciinema] clearCache failed:", err);
-                await vscode.window.showErrorMessage(
-                    `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
+                await showPaletteNotice(
+                    "GitHub Artifacts — command failed",
+                    `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`,
+                    "error"
                 );
             }
         })
@@ -131,8 +138,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                         "[asciinema] stopHtmlPreview failed:",
                         err
                     );
-                    await vscode.window.showErrorMessage(
-                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`
+                    await showPaletteNotice(
+                        "GitHub Artifacts — command failed",
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`,
+                        "error"
                     );
                 }
             }

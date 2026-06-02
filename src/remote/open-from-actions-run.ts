@@ -3,6 +3,7 @@ import {
     parseActionsRunUrl,
 } from "./parse-run-url.js";
 import { runActionsRunFlow } from "./actions-run-flow.js";
+import { showPaletteNotice } from "./quick-input.js";
 
 /**
  * Command implementation for `asciinema.openFromActionsRun`.
@@ -35,8 +36,10 @@ export async function openFromActionsRunCommand(
 
     const coords = parseActionsRunUrl(rawUrl);
     if (!coords) {
-        await vscode.window.showErrorMessage(
-            "That doesn't look like a GitHub Actions workflow run URL."
+        await showPaletteNotice(
+            "GitHub Artifacts — run URL not recognized",
+            "That doesn't look like a GitHub Actions workflow run URL.",
+            "error"
         );
         return;
     }

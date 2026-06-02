@@ -23,6 +23,11 @@ import {
     repoOf,
     type ArtifactSource,
 } from "./artifact-source.js";
+import {
+    pickPaletteAction,
+    showPaletteNotice,
+    withPaletteProgress,
+} from "./quick-input.js";
 
 const DEFAULT_MAX_ARTIFACT_MB = 250;
 const DEFAULT_MAX_ENTRY_COUNT = 250_000;
@@ -73,8 +78,10 @@ export async function pickAndOpenArtifact(
         createIfNone: false,
     }))?.accessToken;
     if (!token) {
-        await vscode.window.showErrorMessage(
-            "GitHub sign-in is no longer available."
+        await showPaletteNotice(
+            "GitHub Artifacts — sign in unavailable",
+            "GitHub sign-in is no longer available.",
+            "error"
         );
         return;
     }
@@ -102,11 +109,12 @@ export async function pickAndOpenArtifact(
 
     let zipBytes: Uint8Array | undefined;
     try {
-        zipBytes = await vscode.window.withProgress(
+        zipBytes = await withPaletteProgress(
             {
-                location: vscode.ProgressLocation.Notification,
                 title: `GitHub Artifacts — Downloading "${chosenArtifact.name}"`,
+                placeholder: "Downloading artifact...",
                 cancellable: true,
+                initialMessage: "Starting download",
             },
             async (progress, token2) => {
                 const controller = new AbortController();
@@ -170,11 +178,11 @@ export async function pickAndOpenArtifact(
 
     let bundle: Awaited<ReturnType<typeof saveArtifactZip>>;
     try {
-        bundle = await vscode.window.withProgress(
+        bundle = await withPaletteProgress(
             {
-                location: vscode.ProgressLocation.Notification,
                 title: `GitHub Artifacts — Inspecting "${chosenArtifact.name}"`,
-                cancellable: false,
+                placeholder: "Reading artifact zip contents...",
+                initialMessage: "Inspecting zip entries",
             },
             () =>
                 saveArtifactZip(context, chosenArtifact.id, zipBytes!, {
@@ -183,11 +191,17 @@ export async function pickAndOpenArtifact(
         );
     } catch (err) {
         if (err instanceof ZipLimitError) {
-            await vscode.window.showErrorMessage(err.message);
+            await showPaletteNotice(
+                "GitHub Artifacts — artifact zip limit",
+                err.message,
+                "error"
+            );
             return;
         }
-        await vscode.window.showErrorMessage(
-            `Couldn't open artifact zip: ${(err as Error).message}`
+        await showPaletteNotice(
+            "GitHub Artifacts — artifact zip failed",
+            `Couldn't open artifact zip: ${(err as Error).message}`,
+            "error"
         );
         return;
     }
@@ -217,13 +231,25 @@ async function confirmOversizeDownload(
     const actualMB = formatMB(actualBytes);
     const configuredMB = formatMB(configuredBytes);
     const overBy = formatMB(actualBytes - configuredBytes);
-    const proceed = "Download Anyway";
-    const choice = await vscode.window.showWarningMessage(
-        `This artifact is ${actualMB} MB, which is ${overBy} MB over your configured limit of ${configuredMB} MB (\`asciinema.maxArtifactSizeMB\`). Download it anyway?`,
-        { modal: true },
-        proceed
+    const choice = await pickPaletteAction(
+        [
+            {
+                label: "$(cloud-download)  Download anyway",
+                description: `${actualMB} MB artifact · ${overBy} MB over limit`,
+                detail: `Configured limit: ${configuredMB} MB (asciinema.maxArtifactSizeMB)`,
+                value: "download",
+            },
+            {
+                label: "$(close)  Cancel",
+                value: "cancel",
+            },
+        ],
+        {
+            title: "GitHub Artifacts — artifact exceeds size limit",
+            message: `This artifact is ${actualMB} MB, which is ${overBy} MB over your configured limit of ${configuredMB} MB.`,
+        }
     );
-    return choice === proceed;
+    return choice === "download";
 }
 
 function formatMB(bytes: number): string {
@@ -308,30 +334,61 @@ export async function handleApiError(
 ): Promise<void> {
     if (err instanceof GitHubApiError) {
         if (err.status === 401 || err.status === 403 || err.status === 404) {
-            const choice = await vscode.window.showErrorMessage(
-                `${ctx.notFoundMessage} ${err.message}`,
-                ctx.fallbackLabel
+            const choice = await pickPaletteAction(
+                [
+                    {
+                        label: `$(link-external)  ${ctx.fallbackLabel}`,
+                        description: "Open github.com for details",
+                        value: "open",
+                    },
+                    {
+                        label: "$(close)  Dismiss",
+                        value: "dismiss",
+                    },
+                ],
+                {
+                    title: "GitHub Artifacts — GitHub API error",
+                    message: `${ctx.notFoundMessage} ${err.message}`,
+                }
             );
-            if (choice === ctx.fallbackLabel) {
+            if (choice === "open") {
                 await vscode.env.openExternal(vscode.Uri.parse(ctx.fallbackUrl));
             }
             return;
         }
         if (err.retryable && ctx.retry) {
-            const choice = await vscode.window.showErrorMessage(
-                err.message,
-                "Retry"
+            const choice = await pickPaletteAction(
+                [
+                    {
+                        label: "$(refresh)  Retry",
+                        value: "retry",
+                    },
+                    {
+                        label: "$(close)  Dismiss",
+                        value: "dismiss",
+                    },
+                ],
+                {
+                    title: "GitHub Artifacts — GitHub API error",
+                    message: err.message,
+                }
             );
-            if (choice === "Retry") {
+            if (choice === "retry") {
                 await ctx.retry();
             }
             return;
         }
-        await vscode.window.showErrorMessage(err.message);
+        await showPaletteNotice(
+            "GitHub Artifacts — GitHub API error",
+            err.message,
+            "error"
+        );
         return;
     }
-    await vscode.window.showErrorMessage(
-        `Unexpected error: ${(err as Error).message}`
+    await showPaletteNotice(
+        "GitHub Artifacts — unexpected error",
+        `Unexpected error: ${(err as Error).message}`,
+        "error"
     );
 }
 

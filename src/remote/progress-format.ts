@@ -1,15 +1,10 @@
 /**
- * Small helpers for building progress notification messages used by the
+ * Small helpers for building progress messages used by the
  * download + extraction phases of the Artifacts Explorer command.
  *
- * VS Code's `withProgress` notification renders the `message` field as a
- * plain DOM text node inside a `<span>` with default `white-space`, so:
- *   - `\n` newlines collapse to whitespace (no vertical layout)
- *   - `$(name)` codicon tokens render as literal text
- *
- * We therefore lay out facts on a single line separated by ` · `, and use
- * emoji glyphs (which DO render) instead of `$(name)` codicon tokens as
- * the leading visual marker for each fact.
+ * QuickInput and notification surfaces both work best with compact text, so
+ * facts stay on one line separated by ` · ` and use emoji glyphs instead of
+ * codicon tokens as the leading visual marker for each fact.
  */
 
 import { formatBytesShort } from "./quickpick-helpers.js";

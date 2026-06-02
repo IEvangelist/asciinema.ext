@@ -20,6 +20,10 @@ import {
     isWorkflowJobActive,
     isWorkflowRunActive,
 } from "./workflow-run-state.js";
+import {
+    pickPaletteAction,
+    withPaletteProgress,
+} from "./quick-input.js";
 
 const WAIT_POLL_MS = 10_000;
 
@@ -62,10 +66,11 @@ export async function runActionsRunFlow(
     let run = options.initialRun;
     if (!run) {
         try {
-            run = await vscode.window.withProgress(
+            run = await withPaletteProgress(
                 {
-                    location: vscode.ProgressLocation.Notification,
                     title: `GitHub Artifacts — Looking up run ${coords.owner}/${coords.repo} #${coords.runId}`,
+                    placeholder: "Looking up workflow run metadata...",
+                    initialMessage: "Contacting GitHub Actions",
                 },
                 () => getWorkflowRunById(token, repo, coords.runId)
             );
@@ -181,10 +186,11 @@ async function listRunArtifacts(
     repo: { readonly owner: string; readonly repo: string },
     run: WorkflowRunSummary
 ): Promise<WorkflowArtifact[]> {
-    return await vscode.window.withProgress(
+    return await withPaletteProgress(
         {
-            location: vscode.ProgressLocation.Notification,
             title: "GitHub Artifacts — Listing artifacts for run",
+            placeholder: "Checking this workflow run for artifacts...",
+            initialMessage: `${run.name ?? "workflow"} #${run.runNumber}`,
         },
         () => listArtifactsForRun(token, repo, run.id)
     );
@@ -243,11 +249,12 @@ async function waitForRunArtifacts(
     repo: { readonly owner: string; readonly repo: string },
     initialRun: WorkflowRunSummary
 ): Promise<WaitResult> {
-    return await vscode.window.withProgress(
+    return await withPaletteProgress(
         {
-            location: vscode.ProgressLocation.Notification,
             title: `GitHub Artifacts — Waiting for ${initialRun.name ?? "workflow"} #${initialRun.runNumber}`,
+            placeholder: "Waiting for artifacts...",
             cancellable: true,
+            initialMessage: "Checking run status and artifacts",
         },
         async (progress, cancellation) => {
             let run = initialRun;
@@ -371,11 +378,24 @@ async function acquireSession(): Promise<
     if (session) {
         return session;
     }
-    const choice = await vscode.window.showErrorMessage(
-        "GitHub sign-in is required to download CI artifacts.",
-        "Sign in"
+    const choice = await pickPaletteAction(
+        [
+            {
+                label: "$(sign-in)  Sign in",
+                description: "Use VS Code's GitHub authentication",
+                value: "sign-in",
+            },
+            {
+                label: "$(close)  Cancel",
+                value: "cancel",
+            },
+        ],
+        {
+            title: "GitHub Artifacts — sign in required",
+            message: "GitHub sign-in is required to download CI artifacts.",
+        }
     );
-    if (choice === "Sign in") {
+    if (choice === "sign-in") {
         return await getGitHubSession(true);
     }
     return undefined;

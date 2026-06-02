@@ -13,6 +13,10 @@ import {
     recentsDateRange,
     removeRecentsSince,
 } from "./recent-artifacts.js";
+import {
+    confirmPalette,
+    showPaletteNotice,
+} from "./quick-input.js";
 
 interface ClearCacheItem extends vscode.QuickPickItem {
     readonly action:
@@ -123,14 +127,16 @@ export async function clearCacheCommand(
             const a = await clearArtifactsRoot(context);
             const c = await clearCastsRoot(context);
             await forgetAllRecents();
-            await vscode.window.showInformationMessage(
+            await showPaletteNotice(
+                "GitHub Artifacts — cache cleared",
                 `Cleared ${formatBytes(a + c)} of Asciinema cache.`
             );
             return;
         }
         case "clear-recent-7d": {
             if (recentCountLast7d === 0) {
-                await vscode.window.showInformationMessage(
+                await showPaletteNotice(
+                    "GitHub Artifacts — clear recent",
                     "No recent artifacts in the last 7 days."
                 );
                 return;
@@ -149,7 +155,8 @@ export async function clearCacheCommand(
             }
             const since = Date.now() - SEVEN_DAYS_MS;
             const result = await removeRecentsSince(since);
-            await vscode.window.showInformationMessage(
+            await showPaletteNotice(
+                "GitHub Artifacts — recents cleared",
                 `Cleared ${formatBytes(result.bytes)} across ${
                     result.count
                 } recent ${result.count === 1 ? "artifact" : "artifacts"}.`
@@ -158,7 +165,8 @@ export async function clearCacheCommand(
         }
         case "clear-casts": {
             if (stats.castsBytes === 0) {
-                await vscode.window.showInformationMessage(
+                await showPaletteNotice(
+                    "GitHub Artifacts — clear casts",
                     "No cached cast files to clear."
                 );
                 return;
@@ -174,14 +182,16 @@ export async function clearCacheCommand(
                 return;
             }
             const c = await clearCastsRoot(context);
-            await vscode.window.showInformationMessage(
+            await showPaletteNotice(
+                "GitHub Artifacts — casts cleared",
                 `Cleared ${formatBytes(c)} of session cast files.`
             );
             return;
         }
         case "clear-artifacts": {
             if (stats.artifactsBytes === 0 && stats.artifactCount === 0) {
-                await vscode.window.showInformationMessage(
+                await showPaletteNotice(
+                    "GitHub Artifacts — clear artifacts",
                     "No cached artifacts to clear."
                 );
                 return;
@@ -200,7 +210,8 @@ export async function clearCacheCommand(
             }
             const a = await clearArtifactsRoot(context);
             await forgetAllRecents();
-            await vscode.window.showInformationMessage(
+            await showPaletteNotice(
+                "GitHub Artifacts — artifacts cleared",
                 `Cleared ${formatBytes(a)} across ${
                     stats.artifactCount
                 } cached ${
@@ -213,10 +224,9 @@ export async function clearCacheCommand(
 }
 
 async function confirm(message: string, action: string): Promise<boolean> {
-    const choice = await vscode.window.showWarningMessage(
+    return await confirmPalette(
+        "GitHub Artifacts — confirm cache cleanup",
         message,
-        { modal: true },
         action
     );
-    return choice === action;
 }

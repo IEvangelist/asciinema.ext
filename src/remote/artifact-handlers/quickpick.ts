@@ -21,6 +21,14 @@ export function showQuickPick<T extends vscode.QuickPickItem>(
 ): Promise<T | undefined> {
     return new Promise((resolve) => {
         const qp = vscode.window.createQuickPick<T>();
+        let settled = false;
+        const finish = (value: T | undefined) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            resolve(value);
+        };
         qp.title = options.title;
         qp.placeholder = options.placeholder;
         qp.step = options.step;
@@ -37,12 +45,12 @@ export function showQuickPick<T extends vscode.QuickPickItem>(
         }
         qp.onDidAccept(() => {
             const selection = qp.selectedItems[0];
+            finish(selection);
             qp.hide();
-            resolve(selection);
         });
         qp.onDidHide(() => {
             qp.dispose();
-            resolve(undefined);
+            finish(undefined);
         });
         qp.show();
     });
