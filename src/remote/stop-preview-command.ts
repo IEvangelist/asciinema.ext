@@ -3,7 +3,7 @@ import { showQuickPick } from "./artifact-handlers/quickpick.js";
 import { previewRegistry, type ActivePreview } from "./preview-registry.js";
 
 interface PreviewQuickPickItem extends vscode.QuickPickItem {
-    readonly action: "stop-one" | "stop-all" | "noop";
+    readonly action: "stop-one" | "stop-one-delete-cache" | "stop-all" | "noop";
     readonly preview?: ActivePreview;
 }
 
@@ -31,7 +31,17 @@ export async function stopHtmlPreviewCommand(): Promise<void> {
         return;
     }
     if (picked.preview) {
-        await picked.preview.dispose();
+        await stopPreview(picked.preview, picked.action === "stop-one-delete-cache");
+    }
+}
+
+async function stopPreview(
+    preview: ActivePreview,
+    deleteCache: boolean
+): Promise<void> {
+    await preview.dispose();
+    if (deleteCache) {
+        await preview.deleteArtifactCache?.();
     }
 }
 
@@ -61,6 +71,13 @@ function buildStopPreviewItems(
                 preview: only,
             },
             {
+                label: "$(trash)  Stop preview and delete artifact from cache",
+                description: only.artifactName,
+                detail: `${only.url} · removes cached artifact files and recent entry`,
+                action: "stop-one-delete-cache",
+                preview: only,
+            },
+            {
                 label: "$(debug-continue)  Keep preview running",
                 description: "No changes",
                 detail: "Dismisses this picker without stopping the server.",
@@ -83,13 +100,22 @@ function buildStopPreviewItems(
             kind: vscode.QuickPickItemKind.Separator,
             action: "stop-one",
         },
-        ...previews.map<PreviewQuickPickItem>((p) => ({
-            label: `$(debug-stop)  ${p.artifactName}`,
-            description: `${p.url} · started ${formatAge(p.startedAt)}`,
-            detail: `Preview id ${p.id}`,
-            action: "stop-one",
-            preview: p,
-        })),
+        ...previews.flatMap<PreviewQuickPickItem>((p) => [
+            {
+                label: `$(debug-stop)  Stop ${p.artifactName}`,
+                description: `${p.url} · started ${formatAge(p.startedAt)}`,
+                detail: `Preview id ${p.id}`,
+                action: "stop-one",
+                preview: p,
+            },
+            {
+                label: `$(trash)  Stop and delete ${p.artifactName}`,
+                description: `${p.url} · removes cached artifact files and recent entry`,
+                detail: `Preview id ${p.id}`,
+                action: "stop-one-delete-cache",
+                preview: p,
+            },
+        ]),
     ];
 }
 
@@ -98,9 +124,9 @@ function stopPreviewPlaceholder(previewCount: number): string {
         return "No HTML previews are currently running";
     }
     if (previewCount === 1) {
-        return "Press Enter to stop the preview, or pick Keep preview running";
+        return "Stop the preview, delete its cached artifact too, or keep it running";
     }
-    return "Pick a preview to stop, or pick Stop all";
+    return "Pick a preview action, or pick Stop all";
 }
 
 /**

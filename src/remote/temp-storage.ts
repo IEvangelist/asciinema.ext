@@ -260,6 +260,38 @@ export async function deleteArtifactZip(
 }
 
 /**
+ * Best-effort delete of all cached storage for an artifact id, regardless of
+ * whether it currently lives as a zip, extracted tree, or both.
+ */
+export async function deleteArtifactCache(
+    context: vscode.ExtensionContext,
+    artifactId: number
+): Promise<void> {
+    await Promise.all([
+        deleteIfPresent(getArtifactZipUri(context, artifactId), false),
+        deleteIfPresent(getArtifactExtractedDir(context, artifactId), true),
+    ]);
+}
+
+async function deleteIfPresent(uri: vscode.Uri, recursive: boolean): Promise<void> {
+    try {
+        await vscode.workspace.fs.delete(uri, {
+            recursive,
+            useTrash: false,
+        });
+    } catch (error) {
+        if (isFileNotFoundError(error)) {
+            return;
+        }
+        throw error;
+    }
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+    return error instanceof vscode.FileSystemError && error.code === "FileNotFound";
+}
+
+/**
  * Inflates an artifact zip into a per-artifact directory under the shared
  * `remote-artifacts/` root. Returns the extraction root + listing.
  *

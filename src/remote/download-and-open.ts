@@ -6,7 +6,7 @@ import {
     type WorkflowRunSummary,
 } from "./github-client.js";
 import { ZipLimitError } from "./artifact-zip.js";
-import { saveArtifactZip } from "./temp-storage.js";
+import { deleteArtifactCache, saveArtifactZip } from "./temp-storage.js";
 import { isAbortError } from "./zip-extract.js";
 import { dispatchHandler } from "./artifact-handlers/dispatcher.js";
 import type { HandlerContext } from "./artifact-handlers/handler-types.js";
@@ -18,7 +18,7 @@ import {
 import { showQuickPick } from "./artifact-handlers/quickpick.js";
 import { getDownloadQuip } from "./download-quips.js";
 import { buildProgressMessage } from "./progress-format.js";
-import { recordRecent } from "./recent-artifacts.js";
+import { recordRecent, removeRecent } from "./recent-artifacts.js";
 import {
     repoOf,
     type ArtifactSource,
@@ -204,21 +204,30 @@ export async function pickAndOpenArtifact(
         return;
     }
 
+    let recentKey: string | undefined;
+    await recordRecent({
+        source,
+        run,
+        artifact: chosenArtifact,
+        bundle,
+    }).then((recent) => {
+        recentKey = recent.key;
+    }).catch(() => {
+        // best-effort persistence
+    });
     const handlerCtx: HandlerContext = {
         extensionContext: context,
         coords: repo,
         run,
         artifact: chosenArtifact,
         bundle,
+        deleteArtifactCache: async () => {
+            if (recentKey) {
+                await removeRecent(recentKey);
+            }
+            await deleteArtifactCache(context, chosenArtifact.id);
+        },
     };
-    void recordRecent({
-        source,
-        run,
-        artifact: chosenArtifact,
-        bundle,
-    }).catch(() => {
-        // best-effort persistence
-    });
     await dispatchHandler(handlerCtx);
 }
 

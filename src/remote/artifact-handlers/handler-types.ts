@@ -22,6 +22,7 @@ export interface HandlerContext {
     readonly run: WorkflowRunSummary;
     readonly artifact: WorkflowArtifact;
     readonly bundle: ArtifactBundle;
+    readonly deleteArtifactCache?: () => Promise<void> | void;
     extracted?: ExtractedArtifact;
 }
 

@@ -30,6 +30,7 @@ import {
     pullRequestUrl,
     repoOf,
 } from "./artifact-source.js";
+import { deleteArtifactCache } from "./temp-storage.js";
 import {
     handleApiError,
     pickAndOpenArtifact,
@@ -346,6 +347,10 @@ async function openRecent(
         artifact: entry.artifact,
         bundle,
         extracted: entry.kind === "extracted" ? entry.extracted : undefined,
+        deleteArtifactCache: async () => {
+            await removeRecent(entry.key);
+            await deleteArtifactCache(context, entry.artifact.id);
+        },
     };
     await dispatchHandler(handlerCtx);
 }

@@ -178,6 +178,7 @@ export async function launchStaticPreview(
                 artifactName: ctx.artifact.name,
                 url,
                 startedAt,
+                deleteArtifactCache: ctx.deleteArtifactCache,
                 dispose: async () => {
                     await stopServer();
                     try {

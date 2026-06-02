@@ -4,6 +4,13 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-06-02
+
+### Changed — Stop preview cache cleanup
+
+- **Stop HTML preview now offers two actions per running preview.** Pick **Stop** to close only the preview server, or **Stop and delete artifact from cache** to close the server and remove the cached artifact files plus its recent entry.
+- Multiple preview sessions still keep the **Stop all** shortcut, with per-preview stop-only and stop-and-delete rows listed below it.
+
 ## [0.6.7] - 2026-06-02
 
 ### Changed — Friendlier size-limit recovery

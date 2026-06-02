@@ -17,6 +17,7 @@ export interface ActivePreview {
     readonly url: string;
     readonly startedAt: number;
     readonly dispose: () => Promise<void> | void;
+    readonly deleteArtifactCache?: () => Promise<void> | void;
 }
 
 class PreviewRegistry {

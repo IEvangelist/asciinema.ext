@@ -103,7 +103,7 @@ Open any `.cast` file and it plays — right inside an editor tab.
 | **HTML previews stream straight from the zip** | Downloaded artifacts park as `globalStorageUri/remote-artifacts/{id}.zip`. Cast / browse picks extract on demand; HTML previews skip extraction entirely and serve each request by inflating one entry through JSZip. Result: O(1) once the download finishes — no waiting on every entry to land on disk. |
 | **Cancellable downloads & extractions** | Download, lookup, wait, and extraction progress stays in keyboard-friendly QuickPick surfaces with a cancel row when cancellation is supported. Cancelling a download aborts the HTTP body read; cancelling an extraction leaves partial state behind so a future retry resumes where you stopped (no re-decompression). |
 | **Pending PR runs stay actionable** | Paste a PR before artifacts are ready and the Explorer shows active GitHub Actions runs plus live job statuses instead of failing. Pick a run/job, wait for artifacts, then continue into the same CI-run artifact picker. |
-| **Stop previews from anywhere** | While a preview server is running you get a right-side **`$(debug-stop) HTML preview`** status bar item — click it, run **`GitHub Artifacts: Stop HTML preview`**, or press `Ctrl+C` inside the preview's terminal. The command opens a keyboard-friendly picker with Stop / Keep options, and multiple concurrent previews add "Stop all / pick one" choices. |
+| **Stop previews from anywhere** | While a preview server is running you get a right-side **`$(debug-stop) HTML preview`** status bar item — click it, run **`GitHub Artifacts: Stop HTML preview`**, or press `Ctrl+C` inside the preview's terminal. The command opens a keyboard-friendly picker with per-preview **Stop** and **Stop + delete artifact from cache** options; multiple concurrent previews still include **Stop all**. |
 | **Recents that actually work** | Successful opens are saved to `globalState`, capped at 25, with codicons, relative timestamps, run conclusion icons, and per-item buttons (open PR · open run · forget). Survives restarts; orphan zips and dirs cleaned at activation. |
 | **Live download & extract progress** | Real percentages (`12.4 MB of 87.0 MB · 14%`, `12,403 / 27,718 files · 184.2 MB · 44%`), ~10 updates/sec, with rotating dev-humor quips on long downloads — shown in the picker instead of popup notifications. |
 | **Recoverable cap-breaches** | Hit `maxArtifactSizeMB`, `maxArtifactEntryCount`, `maxArtifactExtractedMB`, etc. and the picker recommends raising the relevant cap to 20% above the observed artifact size. Downloads also offer **Download this once** and **Do not download**; extraction retries still include **Custom value / Open Settings**. |
@@ -148,7 +148,7 @@ Three ways to stop it:
 2. Run **`GitHub Artifacts: Stop HTML preview`** from the palette, then choose the preview to stop from the picker.
 3. Press `Ctrl+C` inside the preview's terminal (the one that opens with the server banner).
 
-If you've spawned multiple previews, you get a "Stop all / pick one" picker.
+If you've spawned multiple previews, you get a "Stop all / pick one" picker, with both "stop only" and "stop + delete cached artifact" choices for each preview.
 
 </details>
 
