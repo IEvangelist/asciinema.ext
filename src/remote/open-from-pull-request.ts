@@ -1,18 +1,10 @@
 import * as vscode from "vscode";
 import {
     parsePullRequestUrl,
-    type PullRequestCoordinates,
 } from "./parse-pr-url.js";
 import {
     parseActionsRunUrl,
 } from "./parse-run-url.js";
-import {
-    findRunWithArtifacts,
-    getGitHubSession,
-    getPullRequestHead,
-    type WorkflowArtifact,
-    type WorkflowRunSummary,
-} from "./github-client.js";
 import { dispatchHandler } from "./artifact-handlers/dispatcher.js";
 import type { HandlerContext } from "./artifact-handlers/handler-types.js";
 import {
@@ -26,29 +18,25 @@ import {
     type RecentArtifact,
 } from "./recent-artifacts.js";
 import {
-    fromPullRequest,
     pullRequestUrl,
     repoOf,
 } from "./artifact-source.js";
+import { parseRepositoryUrl } from "./parse-repo-url.js";
 import { deleteArtifactCache } from "./temp-storage.js";
-import {
-    handleApiError,
-    pickAndOpenArtifact,
-} from "./download-and-open.js";
 import { runActionsRunFlow } from "./actions-run-flow.js";
-import { pickActiveWorkflowRunForPullRequest } from "./pending-pr-runs.js";
+import { runExploreRepositoryFlow } from "./explore-repository-flow.js";
+import { runPrFlow } from "./pr-flow.js";
 import {
     confirmPalette,
-    pickPaletteAction,
     showPaletteNotice,
-    withPaletteProgress,
 } from "./quick-input.js";
 
 /**
  * Command implementation for `asciinema.openFromPullRequest`.
  *
  * Despite the name, the entry point now accepts either a GitHub PR URL or
- * an Actions run URL — the command is the central "Artifacts Explorer"
+ * an Actions run URL or a repository URL — the command is the central
+ * "Artifacts Explorer"
  * surface, with recents from both sources listed together.
  */
 export interface OpenFromPullRequestOptions {
@@ -79,16 +67,17 @@ export async function openFromPullRequestCommand(
     if (!rawUrl) {
         rawUrl = await vscode.window.showInputBox({
             title: "GitHub Artifacts — Explorer",
-            prompt: "Paste a GitHub pull request or Actions run URL",
+            prompt: "Paste a GitHub pull request, Actions run, or repository URL",
             placeHolder:
-                "https://github.com/owner/repo/pull/123 — or /actions/runs/12345",
+                "https://github.com/owner/repo/pull/123 — or /actions/runs/12345 — or /owner/repo",
             ignoreFocusOut: true,
             validateInput: (value) =>
                 !value ||
                 parsePullRequestUrl(value) ||
-                parseActionsRunUrl(value)
+                parseActionsRunUrl(value) ||
+                parseRepositoryUrl(value)
                     ? undefined
-                    : "Not a recognized GitHub PR or Actions run URL",
+                    : "Not a recognized GitHub PR, Actions run, or repository URL",
         });
         if (!rawUrl) {
             return;
@@ -105,9 +94,14 @@ export async function openFromPullRequestCommand(
         await runActionsRunFlow(context, runCoords);
         return;
     }
+    const repoCoords = parseRepositoryUrl(rawUrl);
+    if (repoCoords) {
+        await runExploreRepositoryFlow(context, repoCoords);
+        return;
+    }
     await showPaletteNotice(
         "GitHub Artifacts — URL not recognized",
-        "That doesn't look like a GitHub PR or Actions run URL.",
+        "That doesn't look like a GitHub PR, Actions run, or repository URL.",
         "error"
     );
 }
@@ -200,8 +194,8 @@ function buildStartingPointItems(
             choice: { kind: "clear-all-recents" },
         });
         items.push({
-            label: "$(cloud-download)  Download from a PR or Actions run…",
-            description: "Paste a PR or workflow-run URL",
+            label: "$(cloud-download)  Open from a PR, Actions run, or repository…",
+            description: "Paste a PR, workflow-run, or repository URL",
             choice: { kind: "new" },
         });
     } else {
@@ -210,8 +204,8 @@ function buildStartingPointItems(
             kind: vscode.QuickPickItemKind.Separator,
         });
         items.push({
-            label: "$(cloud-download)  Download from a PR or Actions run",
-            description: "Paste a PR or workflow-run URL to fetch its artifacts",
+            label: "$(cloud-download)  Open from a PR, Actions run, or repository",
+            description: "Paste a PR, workflow-run, or repository URL",
             detail: "$(info) No recent artifacts yet — successfully opened ones will appear here for quick access.",
             choice: { kind: "new" },
         });
@@ -242,8 +236,8 @@ async function pickStartingPoint(
         qp.title = "GitHub Artifacts — Explorer";
         qp.placeholder =
             recent.length > 0
-                ? `Pick a recent artifact, or paste a PR / run URL to download a new one… (${recent.length} cached)`
-                : "Paste a GitHub PR or Actions run URL to download an artifact…";
+                ? `Pick a recent artifact, or paste a PR / run / repository URL… (${recent.length} cached)`
+                : "Paste a GitHub PR, Actions run, or repository URL…";
         qp.matchOnDescription = true;
         qp.matchOnDetail = true;
         qp.ignoreFocusOut = true;
@@ -287,7 +281,11 @@ async function pickStartingPoint(
                 if (
                     picked.choice.kind === "new" &&
                     typed &&
-                    (parsePullRequestUrl(typed) || parseActionsRunUrl(typed))
+                    (
+                        parsePullRequestUrl(typed) ||
+                        parseActionsRunUrl(typed) ||
+                        parseRepositoryUrl(typed)
+                    )
                 ) {
                     finish({ kind: "new", prefilledUrl: typed });
                 } else {
@@ -300,7 +298,11 @@ async function pickStartingPoint(
             // route straight into the download flow.
             if (
                 typed &&
-                (parsePullRequestUrl(typed) || parseActionsRunUrl(typed))
+                (
+                    parsePullRequestUrl(typed) ||
+                    parseActionsRunUrl(typed) ||
+                    parseRepositoryUrl(typed)
+                )
             ) {
                 finish({ kind: "new", prefilledUrl: typed });
                 qp.hide();
@@ -353,131 +355,6 @@ async function openRecent(
         },
     };
     await dispatchHandler(handlerCtx);
-}
-
-async function runPrFlow(
-    context: vscode.ExtensionContext,
-    coords: PullRequestCoordinates
-): Promise<void> {
-    const session = await acquireSession();
-    if (!session) {
-        return;
-    }
-    const token = session.accessToken;
-    const prUrl = pullRequestUrl(coords);
-
-    let head: Awaited<ReturnType<typeof getPullRequestHead>>;
-    try {
-        head = await withPaletteProgress(
-            {
-                title: `GitHub Artifacts — Looking up ${coords.owner}/${coords.repo}#${coords.number}`,
-                placeholder: "Looking up pull request metadata...",
-                initialMessage: "Resolving PR head commit",
-            },
-            () => getPullRequestHead(token, coords)
-        );
-    } catch (err) {
-        await handleApiError(err, {
-            notFoundMessage: `Couldn't access pull request ${coords.owner}/${coords.repo}#${coords.number}.`,
-            fallbackLabel: "Open PR in Browser",
-            fallbackUrl: prUrl,
-            retry: () => runPrFlow(context, coords),
-        });
-        return;
-    }
-
-    let runAndArtifacts:
-        | { run: WorkflowRunSummary; artifacts: WorkflowArtifact[] }
-        | undefined;
-    try {
-        runAndArtifacts = await withPaletteProgress(
-            {
-                title: "GitHub Artifacts — Finding CI run with artifacts",
-                placeholder: "Checking completed workflow runs...",
-                initialMessage: "Looking for non-expired artifacts",
-            },
-            () => findRunWithArtifacts(token, coords, head.sha)
-        );
-    } catch (err) {
-        await handleApiError(err, {
-            notFoundMessage: "Failed to query workflow runs.",
-            fallbackLabel: "Open PR in Browser",
-            fallbackUrl: head.htmlUrl,
-            retry: () => runPrFlow(context, coords),
-        });
-        return;
-    }
-
-    if (!runAndArtifacts) {
-        const selectedRun = await pickActiveWorkflowRunForPullRequest(
-            token,
-            coords,
-            head
-        );
-        if (!selectedRun) {
-            return;
-        }
-        await runActionsRunFlow(
-            context,
-            {
-                owner: coords.owner,
-                repo: coords.repo,
-                runId: selectedRun.id,
-            },
-            {
-                initialRun: selectedRun,
-                source: fromPullRequest(coords),
-                waitIfNotReady: true,
-            }
-        );
-        return;
-    }
-
-    const { run, artifacts } = runAndArtifacts;
-    await pickAndOpenArtifact(
-        context,
-        fromPullRequest(coords),
-        run,
-        artifacts,
-        {
-            fallbackLabel: "Open PR in Browser",
-            fallbackUrl: head.htmlUrl,
-        }
-    );
-}
-
-async function acquireSession(): Promise<
-    vscode.AuthenticationSession | undefined
-> {
-    const existing = await getGitHubSession(false);
-    if (existing) {
-        return existing;
-    }
-    const session = await getGitHubSession(true);
-    if (session) {
-        return session;
-    }
-    const choice = await pickPaletteAction(
-        [
-            {
-                label: "$(sign-in)  Sign in",
-                description: "Use VS Code's GitHub authentication",
-                value: "sign-in",
-            },
-            {
-                label: "$(close)  Cancel",
-                value: "cancel",
-            },
-        ],
-        {
-            title: "GitHub Artifacts — sign in required",
-            message: "GitHub sign-in is required to download CI artifacts.",
-        }
-    );
-    if (choice === "sign-in") {
-        return await getGitHubSession(true);
-    }
-    return undefined;
 }
 
 async function clearAllRecentsFromPicker(): Promise<void> {

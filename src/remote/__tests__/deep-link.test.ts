@@ -23,6 +23,15 @@ describe("parseDeepLink", () => {
         assert.deepEqual(result, { ok: true, target: "actionsRun", url });
     });
 
+    it("accepts an encoded repository URL", () => {
+        const url = "https://github.com/octocat/hello-world";
+        const result = parseDeepLink(
+            "/open",
+            `url=${encodeURIComponent(url)}`
+        );
+        assert.deepEqual(result, { ok: true, target: "repository", url });
+    });
+
     it("allows VS Code window routing metadata", () => {
         const url = "https://github.com/octocat/hello-world/pull/42";
         const result = parseDeepLink(

@@ -1,7 +1,8 @@
 import { parsePullRequestUrl } from "./parse-pr-url.js";
 import { parseActionsRunUrl } from "./parse-run-url.js";
+import { parseRepositoryUrl } from "./parse-repo-url.js";
 
-export type DeepLinkTarget = "pullRequest" | "actionsRun";
+export type DeepLinkTarget = "pullRequest" | "actionsRun" | "repository";
 
 export type DeepLinkErrorCode =
     | "unsupportedPath"
@@ -64,12 +65,15 @@ export function parseDeepLink(
     if (parseActionsRunUrl(url)) {
         return { ok: true, target: "actionsRun", url };
     }
+    if (parseRepositoryUrl(url)) {
+        return { ok: true, target: "repository", url };
+    }
 
     return {
         ok: false,
         code: "invalidUrl",
         message:
-            "Deep link URL must be a GitHub pull request or Actions run URL.",
+            "Deep link URL must be a GitHub pull request, Actions run, or repository URL.",
     };
 }
 

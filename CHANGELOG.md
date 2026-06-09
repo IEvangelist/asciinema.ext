@@ -4,6 +4,14 @@ All notable changes to the **GitHub Artifacts Explorer & Asciinema Player** exte
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-06-09
+
+### Added — Repository URL explore flow
+
+- **Explorer and deep links now accept GitHub repository URLs** (`https://github.com/owner/repo` or `/pulls`) in addition to PR and Actions run URLs.
+- Added **`GitHub Artifacts: Explore Repository`** command to open a live picker of recent open PRs for a repo.
+- Repository PR rows now **enrich in real time** with CI/artifact hints as each lookup completes; selecting a PR continues through the existing artifact-finding flow.
+
 ## [0.6.8] - 2026-06-02
 
 ### Changed — Stop preview cache cleanup

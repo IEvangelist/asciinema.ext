@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CastPreviewProvider } from "./cast-preview-provider.js";
 import { openFromPullRequestCommand } from "./remote/open-from-pull-request.js";
 import { openFromActionsRunCommand } from "./remote/open-from-actions-run.js";
+import { openFromRepositoryCommand } from "./remote/open-from-repository.js";
 import {
     cleanupCurrentSession,
     cleanupOlderSessions,
@@ -100,6 +101,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 } catch (err) {
                     console.error(
                         "[asciinema] openFromActionsRun failed:",
+                        err
+                    );
+                    await showPaletteNotice(
+                        "GitHub Artifacts — command failed",
+                        `GitHub Artifacts — command failed: ${(err as Error)?.message ?? String(err)}`,
+                        "error"
+                    );
+                }
+            }
+        )
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            "asciinema.exploreRepository",
+            async (arg?: unknown) => {
+                try {
+                    await openFromRepositoryCommand(
+                        context,
+                        toPrefilledUrlOptions(arg)
+                    );
+                } catch (err) {
+                    console.error(
+                        "[asciinema] exploreRepository failed:",
                         err
                     );
                     await showPaletteNotice(

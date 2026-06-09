@@ -23,6 +23,18 @@ export interface PullRequestHead {
     readonly htmlUrl: string;
 }
 
+export interface PullRequestSummary {
+    readonly number: number;
+    readonly title: string;
+    readonly state: string;
+    readonly draft: boolean;
+    readonly author: string | null;
+    readonly htmlUrl: string;
+    readonly updatedAt: string;
+    readonly headSha: string;
+    readonly headRef: string;
+}
+
 export interface WorkflowArtifact {
     readonly id: number;
     readonly name: string;
@@ -152,6 +164,50 @@ export async function getPullRequestHead(
 export interface ListWorkflowRunsForShaOptions {
     readonly status?: string;
     readonly perPage?: number;
+}
+
+export interface ListPullRequestsOptions {
+    readonly state?: "open" | "closed" | "all";
+    readonly perPage?: number;
+}
+
+/**
+ * Lists pull requests for a repository, newest-updated first.
+ */
+export async function listPullRequests(
+    token: string,
+    repo: RepoCoordinates,
+    options: ListPullRequestsOptions = {}
+): Promise<PullRequestSummary[]> {
+    const params = new URLSearchParams({
+        state: options.state ?? "open",
+        sort: "updated",
+        direction: "desc",
+        per_page: String(options.perPage ?? 30),
+    });
+    const data = await githubFetch<
+        Array<{
+            number: number;
+            title: string;
+            state: string;
+            draft?: boolean | null;
+            user?: { login?: string } | null;
+            html_url: string;
+            updated_at: string;
+            head: { sha: string; ref: string };
+        }>
+    >(token, `${repoApiPath(repo)}/pulls?${params.toString()}`);
+    return data.map((pr) => ({
+        number: pr.number,
+        title: pr.title,
+        state: pr.state,
+        draft: !!pr.draft,
+        author: pr.user?.login ?? null,
+        htmlUrl: pr.html_url,
+        updatedAt: pr.updated_at,
+        headSha: pr.head.sha,
+        headRef: pr.head.ref,
+    }));
 }
 
 /**

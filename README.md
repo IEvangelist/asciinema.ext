@@ -115,7 +115,7 @@ Open any `.cast` file and it plays — right inside an editor tab.
 <details>
 <summary><b>"I ran the command but nothing happened / I can't find it"</b></summary>
 
-The command is **`GitHub Artifacts: Explorer`** — not "Asciinema" or "Open from PR". All five commands live under the `GitHub Artifacts:` category in the Command Palette (Ctrl+Shift+P). If you don't see them, the extension probably isn't installed yet — run `code --install-extension davidpine-dev.asciinema` and reload.
+The command is **`GitHub Artifacts: Explorer`** — not "Asciinema" or "Open from PR". All six commands live under the `GitHub Artifacts:` category in the Command Palette (Ctrl+Shift+P). If you don't see them, the extension probably isn't installed yet — run `code --install-extension davidpine-dev.asciinema` and reload.
 
 </details>
 
@@ -174,19 +174,21 @@ Click the `$(file-code)` icon in the editor title bar of a `.cast` viewer (or ru
 
 | Command | Description |
 |---|---|
-| `GitHub Artifacts: Explorer` | Browse recents or paste a PR / Actions run URL to download a new artifact. PRs with pending Actions runs show live job status and can wait until artifacts are ready. |
+| `GitHub Artifacts: Explorer` | Browse recents or paste a PR / Actions run / repository URL. Repository URLs open a live PR picker; selecting a PR continues through the existing artifact flow. |
 | `GitHub Artifacts: Open from CI Run` | Skip the PR step entirely; paste a workflow-run URL. If artifacts are not ready, wait for them and continue when available. |
+| `GitHub Artifacts: Explore Repository` | Paste a repository URL to browse recent open PRs with live per-row CI/artifact enrichment, then pick one to continue into artifact lookup. |
 | `GitHub Artifacts: Stop HTML preview` | Stop one or all running HTML preview servers (also reachable via the status bar item, or `Ctrl+C` inside the preview's terminal). |
 | `GitHub Artifacts: Clear extension cache` | QuickPick with live sizes: **Clear all** · **Clear recent (last 7 days)** · **Clear casts only** · **Clear artifacts only** · **Open cache folder**. Each destructive action prompts for confirmation. |
 | `GitHub Artifacts: Open as Text` | Open the active `.cast` recording as raw NDJSON in a text editor (also exposed as a button in the editor title bar of the player). |
 
 ### Deep links
 
-External pages can open the installed extension by linking to the extension URI handler. Put the GitHub PR or Actions run URL in a percent-encoded `url` query parameter:
+External pages can open the installed extension by linking to the extension URI handler. Put the GitHub PR, Actions run, or repository URL in a percent-encoded `url` query parameter:
 
 ```text
 vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F123
 vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Factions%2Fruns%2F123456
+vscode://davidpine-dev.asciinema/open?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo
 ```
 
 Use `vscode-insiders://` for VS Code Insiders. Links generated from inside VS Code should use `vscode.env.asExternalUri(...)` so VS Code can route them back to the current window.
